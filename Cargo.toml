@@ -1,0 +1,49 @@
+[package]
+name = "adborc"
+authors = ["Shubham Pawar"]
+version = "0.1.0"
+edition = "2021"
+description = "Orchestrator for a network of distributed Android devices"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[target.'cfg(windows)'.dependencies]
+
+[target.'cfg(unix)'.dependencies]
+daemonize = "0.4.1"
+
+[dependencies]
+log = { version = "0.4", features = ["release_max_level_info"] }
+env_logger = "0.9.0"
+lazy_static = "1.4.0"
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = "1.0.85"
+portpicker = "0.1.1"
+socket2 = "0.4.7"
+clap = { version = "4.0", features = ["derive"] }
+tokio = { version = "1.21.0", features = ["rt-multi-thread", "net", "macros", "io-util", "time"] }
+blake2 = "0.10"
+snow = { version = "0.9.0", features = ["ring-accelerated"] }
+base64 = "0.13.0"
+pathsearch = "0.2.0"
+clap_mangen = { version = "0.2.2", optional = true }
+hostname = "0.3.1"
+
+[dev-dependencies]
+serial_test = "0.9.0"
+
+[features]
+mangen = ["dep:clap_mangen"]
+
+[profile.release]
+# opt-level = 3
+# debug = false
+# split-debuginfo = '...'  # Platform-specific.
+# debug-assertions = false
+# overflow-checks = false
+lto = true
+strip = true
+# panic = 'unwind'
+# incremental = false
+########## codegen-units = 16
+# rpath = false
