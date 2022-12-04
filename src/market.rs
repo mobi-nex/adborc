@@ -421,8 +421,6 @@ impl System {
         System::stop_market_maker();
         System::stop_supplier(false);
         System::stop_consumer(false);
-        SysState::stop_system();
-        SysState::reset_state();
     }
 
     fn check_system() -> (SupplierCheck, ConsumerCheck) {
@@ -545,6 +543,13 @@ impl System {
             }
             SysStateRequest::Shutdown => {
                 System::server_shutdown();
+                thread::spawn(|| {
+                    // Wait for 1 second to allow the server to send the response.
+                    // The cleanup is effectively done in the server shutdown handler.
+                    thread::sleep(Duration::from_secs(1));
+                    SysState::reset_state();
+                    SysState::stop_system();
+                });
                 serde_json::to_string(&SysStateResponse::ShutDownSuccess).unwrap()
             }
             SysStateRequest::StartMarketMaker => match System::start_market_maker() {
