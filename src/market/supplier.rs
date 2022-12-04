@@ -766,7 +766,7 @@ impl Supplier {
         debug!(
             "Processing request to Supplier: {:?} \tfrom :{}",
             request,
-            base64::encode(&peer_id.as_ref())
+            base64::encode(peer_id.as_ref())
         );
         // Unwrapping of serialing/deserializing is safe, because we use request/response objects
         // that are known to be serializable/deserializable.

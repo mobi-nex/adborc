@@ -544,10 +544,7 @@ impl System {
                 serde_json::to_string(&SysStateResponse::SetScrcpyPathSuccess).unwrap()
             }
             SysStateRequest::Shutdown => {
-                thread::spawn(|| {
-                    thread::sleep(Duration::from_millis(1000));
-                    System::server_shutdown()
-                });
+                System::server_shutdown();
                 serde_json::to_string(&SysStateResponse::ShutDownSuccess).unwrap()
             }
             SysStateRequest::StartMarketMaker => match System::start_market_maker() {
@@ -1084,11 +1081,11 @@ impl DeviceKey {
 
     fn get_uuid(&self) -> String {
         let mut hasher = Blake2s16::new();
-        hasher.update(&self.android_serial.as_bytes());
-        hasher.update(&self.android_id.as_bytes());
-        hasher.update(&self.model.as_bytes());
+        hasher.update(self.android_serial.as_bytes());
+        hasher.update(self.android_id.as_bytes());
+        hasher.update(self.model.as_bytes());
         let res = hasher.finalize();
-        base64::encode(&res)
+        base64::encode(res)
     }
 }
 

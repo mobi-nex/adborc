@@ -475,11 +475,10 @@ impl Cli {
                     use std::env;
                     use std::fs::OpenOptions;
 
-                    let current_exe = env::current_exe().unwrap();
-                    let executable_directory = current_exe.parent().unwrap();
-                    let stdout_logfile = executable_directory.join(STDOUT_LOGFILE);
-                    let stderr_logfile = executable_directory.join(STDERR_LOGFILE);
-                    let pid_file = executable_directory.join(PID_FILE);
+                    let temp_dir = env::temp_dir();
+                    let stdout_logfile = temp_dir.join(STDOUT_LOGFILE);
+                    let stderr_logfile = temp_dir.join(STDERR_LOGFILE);
+                    let pid_file = temp_dir.join(PID_FILE);
 
                     let stdout = OpenOptions::new()
                         .create(true)
@@ -497,7 +496,7 @@ impl Cli {
                     let daemonize = Daemonize::new()
                         .pid_file(pid_file)
                         .chown_pid_file(true)
-                        .working_directory(executable_directory)
+                        .working_directory(temp_dir)
                         .stdout(stdout)
                         .stderr(stderr);
 
