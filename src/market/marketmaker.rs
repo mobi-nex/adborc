@@ -526,6 +526,32 @@ impl MarketMakerState {
             .cloned()
             .collect()
     }
+
+    #[inline(always)]
+    fn supplier_supported(supplier_version: &str) -> bool {
+        debug!(
+            "Checking if supplier version {} is supported",
+            supplier_version
+        );
+        // We neither establish nor support any backwards compatibility
+        // till we reach 1.0. What this means in practice is that,
+        // for now, we only accept connections from suppliers that
+        // have the same version as the market maker.
+        ADBORC_VERSION == supplier_version
+    }
+
+    #[inline(always)]
+    fn consumer_supported(consumer_version: &str) -> bool {
+        debug!(
+            "Checking if consumer version {} is supported",
+            consumer_version
+        );
+        // We neither establish nor support any backwards compatibility
+        // till we reach 1.0. What this means in practice is that,
+        // for now, we only accept connections from consumers that
+        // have the same version as the market maker.
+        ADBORC_VERSION == consumer_version
+    }
 }
 
 impl MarketMaker {
@@ -765,6 +791,12 @@ impl MarketMaker {
                     })
                     .unwrap();
                 }
+                if !MarketMakerState::supplier_supported(&supplier.adborc_version) {
+                    return serde_json::to_string(&MarketMakerResponse::SupplierNotConnected {
+                        reason: "Unsupported Supplier version".to_string(),
+                    })
+                    .unwrap();
+                }
                 if supplier.name.is_empty() {
                     supplier.name = peer_addr_ip.clone();
                 }
@@ -928,6 +960,12 @@ impl MarketMaker {
                 if pub_key != peer_id_str {
                     return serde_json::to_string(&MarketMakerResponse::ConsumerNotConnected {
                         reason: "Public key does not match peer id".to_string(),
+                    })
+                    .unwrap();
+                }
+                if !MarketMakerState::consumer_supported(&consumer.adborc_version) {
+                    return serde_json::to_string(&MarketMakerResponse::ConsumerNotConnected {
+                        reason: "Unsupported Consumer version".to_string(),
                     })
                     .unwrap();
                 }

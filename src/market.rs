@@ -9,8 +9,8 @@ mod supplier;
 use crate::net::{CommandServer, PortForwardMode, PortForwarder, ProcessFn, TCPClient};
 use crate::util::{
     adb_utils::{self, AdbVersionInfo, DeviceInfo, ScrcpyVersionInfo},
-    SysStateDefaultConfig, HEARTBEAT_INTERVAL, MIN_ADB_REV, MIN_ADB_VER, MIN_SCRCPY_VER,
-    UNDERTAKER_INTERVAL,
+    SysStateDefaultConfig, ADBORC_VERSION, HEARTBEAT_INTERVAL, MIN_ADB_REV, MIN_ADB_VER,
+    MIN_SCRCPY_VER, UNDERTAKER_INTERVAL,
 };
 use blake2::{digest::consts::U16, Blake2s, Digest};
 use lazy_static::lazy_static;
@@ -629,6 +629,8 @@ pub struct SupplierSpec {
     pub pub_key: String,
     /// Whether the Supplier forces secure communication for devices.
     pub secure_comms: bool,
+    /// `adborc` version.
+    pub adborc_version: String,
 }
 
 impl Default for SupplierSpec {
@@ -641,6 +643,7 @@ impl Default for SupplierSpec {
             ver_info: SupplierCheck::default(),
             pub_key: SystemKeypair::get_public_key().map_or(String::new(), base64::encode),
             secure_comms: false,
+            adborc_version: ADBORC_VERSION.to_string(),
         }
     }
 }
@@ -674,6 +677,8 @@ pub struct ConsumerSpec {
     ver_info: ConsumerCheck,
     /// Public key of the Consumer.
     pub pub_key: String,
+    /// `adborc` version.
+    pub adborc_version: String,
 }
 
 impl Default for ConsumerSpec {
@@ -684,6 +689,7 @@ impl Default for ConsumerSpec {
             bind_port: SysStateDefaultConfig::BIND_PORT,
             ver_info: ConsumerCheck::default(),
             pub_key: SystemKeypair::get_public_key().map_or(String::new(), base64::encode),
+            adborc_version: ADBORC_VERSION.to_string(),
         }
     }
 }
