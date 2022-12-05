@@ -356,14 +356,11 @@ pub mod adb_utils {
         };
         debug!("ADB Path: {}", adb_path.display());
         let mut command = Command::new(adb_path);
+
         #[cfg(windows)]
-        {
-            command.arg("version").creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command.arg("version");
-        }
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        command.arg("version");
         let output = command
             .output()
             .map_err(|e| Error::new(ErrorKind::Other, e))?;
@@ -438,13 +435,10 @@ pub mod adb_utils {
         debug!("SCRCPY Path: {}", scrcpy_path.display());
         let mut command = Command::new(scrcpy_path.clone());
         #[cfg(windows)]
-        {
-            command.arg("--version").creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command.arg("--version");
-        }
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        command.arg("--version");
+
         let output = command
             .output()
             .map_err(|e| Error::new(ErrorKind::Other, e))?;
@@ -484,33 +478,21 @@ pub mod adb_utils {
         let mut command =
             Command::new(ToolsPath::get_adb().unwrap_or_else(|| PathBuf::from("adb")));
         #[cfg(windows)]
-        {
-            command
-                .args(["start-server"])
-                .stdout(Stdio::inherit())
-                .stderr(stdio)
-                .creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command
-                .args(["start-server"])
-                .stdout(Stdio::inherit())
-                .stderr(stdio);
-        }
-        command.spawn().expect("Failed to start adb server");
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        command
+            .args(["start-server"])
+            .stdout(Stdio::inherit())
+            .stderr(stdio)
+            .output()
+            .expect("Failed to start adb server");
 
         let mut command =
             Command::new(ToolsPath::get_adb().unwrap_or_else(|| PathBuf::from("adb")));
         #[cfg(windows)]
-        {
-            command.arg("devices").creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command.arg("devices");
-        }
-        let output = command.output().ok()?;
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        let output = command.arg("devices").output().ok()?;
         if output.status.success() {
             let devices = String::from_utf8(output.stdout).ok()?;
             let mut devices_lines = devices.lines().skip(1).collect::<Vec<&str>>();
@@ -536,23 +518,12 @@ pub mod adb_utils {
         let port = port.unwrap_or(5037);
         let mut command =
             Command::new(ToolsPath::get_adb().unwrap_or_else(|| PathBuf::from("adb")));
+
         #[cfg(windows)]
-        {
-            command
-                .args([
-                    "-P",
-                    &port.to_string(),
-                    "-s",
-                    device_id,
-                    "shell",
-                    "getprop",
-                    "ro.product.brand",
-                ])
-                .creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command.args([
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        let output = command
+            .args([
                 "-P",
                 &port.to_string(),
                 "-s",
@@ -560,9 +531,8 @@ pub mod adb_utils {
                 "shell",
                 "getprop",
                 "ro.product.brand",
-            ]);
-        }
-        let output = command.output();
+            ])
+            .output();
 
         if let Ok(output) = output {
             if output.status.success() {
@@ -577,23 +547,12 @@ pub mod adb_utils {
 
         let mut command =
             Command::new(ToolsPath::get_adb().unwrap_or_else(|| PathBuf::from("adb")));
+
         #[cfg(windows)]
-        {
-            command
-                .args([
-                    "-P",
-                    &port.to_string(),
-                    "-s",
-                    device_id,
-                    "shell",
-                    "getprop",
-                    "ro.product.name",
-                ])
-                .creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command.args([
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        let output = command
+            .args([
                 "-P",
                 &port.to_string(),
                 "-s",
@@ -601,9 +560,8 @@ pub mod adb_utils {
                 "shell",
                 "getprop",
                 "ro.product.name",
-            ]);
-        }
-        let output = command.output();
+            ])
+            .output();
 
         if let Ok(output) = output {
             if output.status.success() {
@@ -618,23 +576,12 @@ pub mod adb_utils {
 
         let mut command =
             Command::new(ToolsPath::get_adb().unwrap_or_else(|| PathBuf::from("adb")));
+
         #[cfg(windows)]
-        {
-            command
-                .args([
-                    "-P",
-                    &port.to_string(),
-                    "-s",
-                    device_id,
-                    "shell",
-                    "getprop",
-                    "ro.product.model",
-                ])
-                .creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command.args([
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        let output = command
+            .args([
                 "-P",
                 &port.to_string(),
                 "-s",
@@ -642,9 +589,8 @@ pub mod adb_utils {
                 "shell",
                 "getprop",
                 "ro.product.model",
-            ]);
-        }
-        let output = command.output();
+            ])
+            .output();
 
         if let Ok(output) = output {
             if output.status.success() {
@@ -659,25 +605,12 @@ pub mod adb_utils {
 
         let mut command =
             Command::new(ToolsPath::get_adb().unwrap_or_else(|| PathBuf::from("adb")));
+
         #[cfg(windows)]
-        {
-            command
-                .args([
-                    "-s",
-                    device_id,
-                    "-P",
-                    port.to_string().as_str(),
-                    "shell",
-                    "settings",
-                    "get",
-                    "secure",
-                    "android_id",
-                ])
-                .creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command.args([
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        let output = command
+            .args([
                 "-s",
                 device_id,
                 "-P",
@@ -687,10 +620,8 @@ pub mod adb_utils {
                 "get",
                 "secure",
                 "android_id",
-            ]);
-        }
-
-        let output = command.output();
+            ])
+            .output();
 
         if let Ok(output) = output {
             if output.status.success() {
@@ -723,17 +654,11 @@ pub mod adb_utils {
         // First, kill the adb server at default port.
         let mut command =
             Command::new(ToolsPath::get_adb().unwrap_or_else(|| PathBuf::from("adb")));
+
         #[cfg(windows)]
-        {
-            command
-                .args(["kill-server"])
-                .creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command.args(["kill-server"]);
-        }
-        command.output().ok()?;
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        command.args(["kill-server"]).output().ok()?;
 
         debug!("Killed adb server at default port");
 
@@ -796,17 +721,12 @@ pub mod adb_utils {
         };
         let mut command =
             Command::new(ToolsPath::get_adb().unwrap_or_else(|| PathBuf::from("adb")));
+
         #[cfg(windows)]
-        {
-            command
-                .args(&start_server_args)
-                .creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command.args(&start_server_args);
-        }
+        command.creation_flags(CREATE_NO_WINDOW);
+
         command
+            .args(&start_server_args)
             .stdout(Stdio::inherit())
             .stderr(stdio)
             .spawn()
@@ -823,17 +743,12 @@ pub mod adb_utils {
         };
         let mut command =
             Command::new(ToolsPath::get_adb().unwrap_or_else(|| PathBuf::from("adb")));
+
         #[cfg(windows)]
-        {
-            command
-                .args(["-P", port.to_string().as_str(), "kill-server"])
-                .creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command.args(["-P", port.to_string().as_str(), "kill-server"]);
-        }
+        command.creation_flags(CREATE_NO_WINDOW);
+
         command
+            .args(["-P", port.to_string().as_str(), "kill-server"])
             .stdout(Stdio::inherit())
             .stderr(stdio)
             .output()
@@ -860,20 +775,15 @@ pub mod adb_utils {
         let scrcpy_path = ToolsPath::get_scrcpy().unwrap_or_else(|| PathBuf::from("scrcpy"));
 
         let mut command = Command::new(scrcpy_path);
+
         #[cfg(windows)]
-        {
-            command
-                .env("ADB_SERVER_SOCKET", format!("tcp:127.0.0.1:{}", adb_port))
-                .args(&args)
-                .creation_flags(CREATE_NO_WINDOW);
-        }
-        #[cfg(not(windows))]
-        {
-            command
-                .env("ADB_SERVER_SOCKET", format!("tcp:127.0.0.1:{}", adb_port))
-                .args(&args);
-        }
-        command.stderr(Stdio::piped()).spawn()
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        command
+            .env("ADB_SERVER_SOCKET", format!("tcp:127.0.0.1:{}", adb_port))
+            .args(&args)
+            .stderr(Stdio::piped())
+            .spawn()
     }
 
     #[cfg(test)]
@@ -912,15 +822,9 @@ pub mod adb_utils {
                     let mut command =
                         Command::new(ToolsPath::get_adb().unwrap_or_else(|| PathBuf::from("adb")));
                     #[cfg(windows)]
-                    {
-                        command
-                            .args(["-P", port.to_string().as_str(), "devices"])
-                            .creation_flags(CREATE_NO_WINDOW);
-                    }
-                    #[cfg(not(windows))]
-                    {
-                        command.args(["-P", port.to_string().as_str(), "devices"]);
-                    }
+                    command.creation_flags(CREATE_NO_WINDOW);
+
+                    command.args(["-P", port.to_string().as_str(), "devices"]);
 
                     let output = command.output().unwrap();
                     assert!(String::from_utf8(output.stdout).unwrap().contains(&device));
