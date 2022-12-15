@@ -367,16 +367,17 @@ pub(crate) enum PortForwardMode {
     /// Insecure mode listening on all interfaces.
     PlainTextAll,
     /// Encrypt mode. Authentication is performed using Noise protocol.
-    /// plaintext data is received at the source port and forwarded to
-    /// the destination port, which is presumably running a PortForward
-    /// in Decrypt mode. The source is usually a local client and the
-    /// destination is usually a remote server.
+    /// Plaintext data is received at the source port and forwarded to
+    /// the destination port, which is presumably running a PortForwarder
+    /// in Decrypt mode. The source is typically a local client and the
+    /// destination is typically a remote server (Decrypt mode portforwarder).
     Encrypt,
     /// Decrypt mode. Authentication is performed using Noise protocol.
-    /// Encrypted data (presumably from a PortForwarder instance in Decrypt
+    /// Encrypted data (presumably from a PortForwarder instance in Encrypt
     /// mode) is received at the source port and forwarded as plaintext
-    /// to the destination port. The destination is usually a local server
-    /// and the source is usually a remote client.
+    /// to the destination port. The destination is typically a server listening
+    /// on local interface and the source is typically a remote client (Encrypt
+    /// mode portforwarder).
     Decrypt,
 }
 

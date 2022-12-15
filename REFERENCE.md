@@ -44,16 +44,16 @@
 
 ## Usage
 
-`adborc` commands are organized into subcommands. There are four types of subcommands:
+*AdbOrc* commands are organized into subcommands. There are four types of subcommands:
 
-1. `system` commands
-2. `marketmaker` commands
-3. `supplier` commands
-4. `consumer` commands
+1. *System* commands
+2. *MarketMaker* commands
+3. *Supplier* commands
+4. *Consumer* commands
 
 The `marketmaker`, `supplier` and `consumer` commands are prefixed with the respective role. For example, `adborc marketmaker start` starts the marketmaker. The `system` commands are not prefixed with any role. For example, `adborc init` initializes the system.
 
-The `system` commands are used to initialize the system and interact with system as a whole. The `marketmaker` commands are used to start the system in `marketmaker` mode and interact with the `marketmaker`. Similarly, the `supplier` and `consumer` commands are used to start the system in `supplier` and `consumer` mode and interact with the respective roles.
+The `system` commands are used to initialize the system and interact with system as a whole. The `marketmaker` commands are used to start the system in *MarketMaker* mode and interact with the *marketmaker*. Similarly, the `supplier` and `consumer` commands are used to start the system in *Supplier* and *Consumer* mode and interact with the respective roles.
 
 
 ## System Commands
@@ -62,7 +62,7 @@ Following are the `system` commands and their usage:
 
 ### init
 
-```
+```bash
 adborc init
 ```
 
@@ -70,7 +70,7 @@ Starts the system listener service. This command must be run before any other co
 
 ### status
 
-```
+```bash
 adborc status
 ```
 
@@ -79,7 +79,7 @@ is initialized, and if it is, the mode(s) currently active.
 
 ### shutdown
 
-```
+```bash
 adborc shutdown
 ```
 
@@ -87,7 +87,7 @@ Shutdown the system. Terminates all active modes (`MarketMaker` / `Supplier` / `
 
 ### get-network-id
 
-```
+```bash
 adborc get-network-id
 ```
 
@@ -95,7 +95,7 @@ Get the `network_id` of system.
 
 ### check
 
-```
+```bash
 adborc check
 ```
 
@@ -105,7 +105,7 @@ available to be run on the system.
 
 ### set-adb-path
 
-```
+```bash
 adborc set-adb-path <path>
 ```
 
@@ -116,7 +116,7 @@ For example: `C:\Users\user\Downloads\platform-tools_r30.0.4-windows\adb.exe`
 
 ### set-scrcpy-path
 
-```
+```bash
 adborc set-scrcpy-path <path>
 ```
 
@@ -133,7 +133,7 @@ Use `adborc marketmaker <command> help` for more information on each.
 
 ### start
 
-```
+```bash
 adborc marketmaker start
 ```
 
@@ -141,7 +141,7 @@ Start a network by running MarketMaker mode on the system.
 
 ### stop
 
-```
+```bash
 adborc marketmaker stop
 ```
 
@@ -152,7 +152,7 @@ connected to the `MarketMaker`.
 
 ### status
 
-```
+```bash
 adborc marketmaker status
 ```
 
@@ -160,7 +160,7 @@ Get the current status of MarketMaker.
 
 ### use-whitelist
 
-```
+```bash
 adborc marketmaker use-whitelist
 ```
 
@@ -175,7 +175,7 @@ Whitelist is disabled by default.
 
 ### reset-whitelist
 
-```
+```bash
 adborc marketmaker reset-whitelist
 ```
 
@@ -183,7 +183,7 @@ Remove the whitelisting requirement for `Supplier`s and `Consumer`s.
 
 ### add-supplier
 
-```
+```bash
 adborc marketmaker add-supplier <peer-id>
 ```
 
@@ -191,7 +191,7 @@ Add a `Supplier` to the whitelist. The `peer-id` is the `network_id` of the `Sup
 
 ### remove-supplier
 
-```
+```bash
 adborc marketmaker remove-supplier <supplier-id>
 ```
 
@@ -202,7 +202,7 @@ connected to the `MarketMaker`.
 
 ### add-consumer
 
-```
+```bash
 adborc marketmaker add-consumer <peer-id>
 ```
 
@@ -210,7 +210,7 @@ Add a `Consumer` to the whitelist. The `peer-id` is the `network_id` of the `Con
 
 ### remove-consumer
 
-```
+```bash
 adborc marketmaker remove-consumer <peer-id>
 ```
 
@@ -227,7 +227,7 @@ Use `adborc supplier <command> help` for more information on each.
 
 ### start
 
-```
+```bash
 adborc supplier start <Marketmaker_IP> [-s/--secure] [-u/--user <username>]
 ```
 
@@ -243,7 +243,7 @@ and does not affect the functionality of the `Supplier`.
 
 ### stop
 
-```
+```bash
 adborc supplier stop
 ```
 
@@ -252,7 +252,7 @@ network and all supplied devices will be reclaimed.
 
 ### status
 
-```
+```bash
 adborc supplier status
 ```
 
@@ -260,7 +260,7 @@ Get the current status of `Supplier`.
 
 ### supply
 
-```
+```bash
 adborc supplier supply [--devices "serial1,serial2,..."]
 ```
 
@@ -270,7 +270,7 @@ If `devices` is not specified, all connected devices will be supplied.
 
 ### reclaim
 
-```
+```bash
 adborc supplier reclaim <device-id> [-f/--force]
 ```
 
@@ -285,7 +285,7 @@ Use `adborc consumer <command> help` for more information on each.
 
 ### start
 
-```
+```bash
 adborc consumer start <Marketmaker_IP> [-u/--user <username>]
 ```
 
@@ -299,7 +299,7 @@ and does not affect the functionality of the `Consumer`.
 
 ### stop
 
-```
+```bash
 adborc consumer stop
 ```
 
@@ -309,7 +309,7 @@ network and all reserved devices will be added back to the network.
 
 ### status
 
-```
+```bash
 adborc consumer status
 ```
 
@@ -317,7 +317,7 @@ Get the current status of `Consumer`.
 
 ### list-available
 
-```
+```bash
 adborc consumer list-available
 ```
 
@@ -325,7 +325,7 @@ Get a list of available devices in the network.
 
 ### get-devices
 
-```
+```bash
 adborc consumer get-devices [--is-available <true/false>] [--device-ids <"id1,id2,...">] \
  [--device-names <"name1,name2,...">] [--device-models <"model1,model2,...">] \
  [--supplied-by <"supplier1,supplier2,...">] [--reserved-by <"consumer1,consumer2,...">]
@@ -334,7 +334,9 @@ adborc consumer get-devices [--is-available <true/false>] [--device-ids <"id1,id
 Get devices in the network and filter them by some criteria.
 
 If `is_available` is true, only available devices will be returned.
+
 If `is_available` is false, only reserved devices will be returned.
+
 If `is_available` is not specified, all devices will be returned.
 
 If `device_ids` is specified, only devices with the specified ids will be returned.
@@ -349,7 +351,7 @@ If `reserved_by` is specified, only devices reserved by the specified `Consumer`
 
 ### list-reserved
 
-```
+```bash
 adborc consumer list-reserved
 ```
 
@@ -357,7 +359,7 @@ Get a list of reserved devices in the network.
 
 ### reserve
 
-```
+```bash
 adborc consumer reserve <device-id>
 ```
 
@@ -371,7 +373,7 @@ See [list-available](#list-available) to get a list of available devices.
 
 ### release
 
-```
+```bash
 adborc consumer release [device-id]
 ```
 
@@ -382,7 +384,7 @@ If no `device-id` is specified, all reserved devices will be released.
 
 ### scrcpy
 
-```
+```bash
 adborc consumer scrcpy <device-id> [-m/--max-size <size>] [-b/--bit-rate <bit-rate>] [--max-fps <fps>]
 ```
 
@@ -392,7 +394,7 @@ Start device screen mirroring using [`scrcpy`](https://github.com/Genymobile/scr
 
 ### set-scrcpy-args
 
-```
+```bash
 adborc consumer set-scrcpy-args [-m/--max-size <size>] [-b/--bit-rate <bit-rate>] [--max-fps <fps>]
 ```
 
@@ -408,7 +410,7 @@ Set the default arguments to be used when starting `scrcpy` for a device.
 
 ### set-default
 
-```
+```bash
 adborc consumer set-default <device-id>
 ```
 
@@ -417,7 +419,5 @@ on the `Consumer` system using `adb` on the default port `5037` and extra port a
 are not required to access the device over `adb`.
 
 ## License
-
-`adborc` is licensed under the __TO_BE_DECIDED__ license. See [LICENSE] for more details.
-
-[LICENSE]: LICENSE
+*AdbOrc* is licensed under the __TO_BE_DECIDED__ license. See [LICENSE] for mor details.
+[**System**SarketMake*C*

@@ -1,13 +1,13 @@
-# ADBORC
+# AdbOrc
 
-`adborc` makes it easy to create psuedo-distributed network of android devices.
+*AdbOrc* makes it easy to create psuedo-distributed network of android devices.
 It is a simple wrapper around `adb` that allows you to easily share
 devices with other users on your network. Securely share your devices
 within your network for testing, debugging or development.
 
 ## Overview
 
-There are three modes of operation for a network node in `adborc`:
+There are three modes of operation for a network node in AdbOrc:
 
 1. *Supplier* - A machine on the network that has one or more android
     devices attached to it. *Supplier*, as the name implies, supplies
@@ -43,7 +43,7 @@ release them back to the network.
 All reserved devices are available for use only to the *Consumer* that
 reserved them. The devices are available directly via `adb`. Device
 screen mirroring for reserved devices is also supported directly by
-`adborc` via [`scrcpy`](https://github.com/Genymobile/scrcpy).
+AdbOrc via [`scrcpy`](https://github.com/Genymobile/scrcpy).
 
 All communications between *Supplier*s, *Consumer*s and *MarketMaker*
 are encrypted using the Noise Protocol Framework. The encryption keys
@@ -62,13 +62,13 @@ protocol cipher suites (uses `KK` pattern). This is done by simply enabling
 
 Start the network by starting *MarketMaker* on a machine:
 
-```
+```bash
 $ adborc marketmaker start
 ```
 
 Join the network as a *Supplier* from another machine:
 
-```
+```bash
 $ adborc supplier start <MarketMaker_IP>
 
 # Or, if you wish to enable secure mode
@@ -83,7 +83,7 @@ $ adborc supplier supply
 
 Join the network as a *Consumer* from another machine:
 
-```
+```bash
 $ adborc consumer start <MarketMaker_IP>
 
 # List available devices
@@ -108,7 +108,7 @@ For a more detailed usage, see the [command reference][REFERENCE]
 
 ### From source
 
-```
+```bash
 # Assuming you have the rust toolchain installed
 $ cargo install --git https://github.com/mobi-nex/adborc.git 
 
@@ -121,12 +121,12 @@ $ cargo install --path .
 
 ### From crates.io
 
-```
+```bash
 # Assuming you have the rust toolchain installed
 $ cargo install adborc
 ```
 
-*Note*: `adborc` in *Consumer*/*Supplier* mode requires `adb` to be installed on the system. It also
+*Note*: AdbOrc in *Consumer*/*Supplier* mode requires `adb` to be installed on the system. It also
 requires `scrcpy` to be installed on the system if you wish to use
 device screen mirroring. See [dependencies](#dependencies) section for more details. 
 
@@ -139,7 +139,7 @@ extracted directory.
 
 ## Dependencies
 
-`adborc` depends on the following:
+AdbOrc depends on the following:
 1. [`adb`](https://developer.android.com/studio/releases/platform-tools) - Android Debug Bridge
 2. [`scrcpy`](https://github.com/Genymobile/scrcpy) - *Optional*, for screen mirroring
 
@@ -156,7 +156,7 @@ minimum revision number of *33.0.1*.
 *Note:* `scrcpy` is not required for *Supplier* mode.
 
 You can override the default `adb` and `scrcpy` used by:
-```
+```bash
 # Full path to the adb executable
 $ adborc set-adb-path <path_to_adb>
 
@@ -174,6 +174,6 @@ Just make sure to run `cargo fmt` and `cargo clippy` before submitting a PR.
 
 ## License
 
-`adborc` is licensed under the Apache License 2.0. See [LICENSE] for more details.
+AdbOrc is licensed under the Apache License 2.0. See [LICENSE] for more details.
 
 [LICENSE]: LICENSE
