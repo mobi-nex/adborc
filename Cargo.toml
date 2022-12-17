@@ -4,12 +4,13 @@ authors = ["Shubham Pawar"]
 version = "0.1.0"
 edition = "2021"
 description = "Orchestrator for a network of distributed Android devices"
-license = "APACHE-2.0"
+license = "Apache-2.0"
 homepage = "https://mobinex.io/"
 repository = "https://github.com/mobi-nex/adborc.git"
 documentation = "https://docs.rs/adborc"
 readme = "README.md"
 keywords = ["android", "adb", "cli"]
+categories = ["command-line-utilities"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

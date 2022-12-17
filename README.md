@@ -5,6 +5,16 @@ It is a simple wrapper around `adb` that allows you to easily share
 devices with other users on your network. Securely share your devices
 within your network for testing, debugging or development.
 
+<br/>
+
+![supply devices](https://i.imgur.com/q9qNqzM.gif)
+
+<br/>
+
+![use devices](https://i.imgur.com/yzfd1Hq.gif)
+
+<br/>
+
 ## Overview
 
 There are three modes of operation for a network node in AdbOrc:
