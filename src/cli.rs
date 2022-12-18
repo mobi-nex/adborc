@@ -309,137 +309,6 @@ fn init_listener() -> io::Result<()> {
     SysState::start_system()
 }
 
-#[cfg(feature = "mangen")]
-fn mangen(path: Option<String>) {
-    use clap::CommandFactory;
-    use clap_mangen::Man;
-    use std::env;
-    use std::fs::File;
-    use std::path::PathBuf;
-
-    let path = if path.is_none() {
-        env::current_exe().unwrap().parent().unwrap().to_path_buf()
-    } else {
-        let temp_path = PathBuf::from(path.as_ref().unwrap());
-        if temp_path.exists() && temp_path.is_dir() {
-            temp_path
-        } else {
-            println!("Invalid path specified");
-            return;
-        }
-    };
-    let out_file = File::create(path.join("adborc.man"));
-    if out_file.is_err() {
-        println!(
-            "Error creating output file: {}\n{}",
-            path.join("adborc.man").display(),
-            out_file.unwrap_err()
-        );
-        return;
-    }
-    let mut out_file = out_file.unwrap();
-    let cli_command = Cli::command();
-    let marketmaker_subcommand = cli_command.find_subcommand("marketmaker").unwrap();
-    let supplier_subcommand = cli_command.find_subcommand("supplier").unwrap();
-    let consumer_subcommand = cli_command.find_subcommand("consumer").unwrap();
-
-    let result = Man::new(cli_command.clone()).render_title(&mut out_file);
-
-    if result.is_err() {
-        println!("Error generating man page title: {}", result.unwrap_err());
-    }
-
-    let result = Man::new(cli_command.clone()).render_name_section(&mut out_file);
-
-    if result.is_err() {
-        println!(
-            "Error generating man page name section: {}",
-            result.unwrap_err()
-        );
-    }
-
-    let result = Man::new(cli_command.clone()).render_synopsis_section(&mut out_file);
-
-    if result.is_err() {
-        println!(
-            "Error generating man page synopsis: {}",
-            result.unwrap_err()
-        );
-    }
-
-    let result = Man::new(cli_command.clone()).render_description_section(&mut out_file);
-
-    if result.is_err() {
-        println!(
-            "Error generating man page description: {}",
-            result.unwrap_err()
-        );
-    }
-
-    let result = Man::new(cli_command.clone()).render_options_section(&mut out_file);
-
-    if result.is_err() {
-        println!("Error generating man page options: {}", result.unwrap_err());
-    }
-
-    let result = Man::new(cli_command.clone()).render_subcommands_section(&mut out_file);
-
-    if result.is_err() {
-        println!(
-            "Error generating man page subcommands: {}",
-            result.unwrap_err()
-        );
-    }
-
-    let result = Man::new(marketmaker_subcommand.clone()).render_subcommands_section(&mut out_file);
-
-    if result.is_err() {
-        println!(
-            "Error writing MarketMaker subcommands: {}",
-            result.unwrap_err()
-        );
-    }
-
-    let result = Man::new(supplier_subcommand.clone()).render_subcommands_section(&mut out_file);
-
-    if result.is_err() {
-        println!(
-            "Error writing Supplier subcommands: {}",
-            result.unwrap_err()
-        );
-    }
-
-    let result = Man::new(consumer_subcommand.clone()).render_subcommands_section(&mut out_file);
-
-    if result.is_err() {
-        println!(
-            "Error writing Consumer subcommands: {}",
-            result.unwrap_err()
-        );
-    }
-
-    let result = Man::new(cli_command.clone()).render_version_section(&mut out_file);
-
-    if result.is_err() {
-        println!(
-            "Error generating man page version section: {}",
-            result.unwrap_err()
-        );
-    }
-
-    let result = Man::new(cli_command.clone()).render_authors_section(&mut out_file);
-
-    if result.is_err() {
-        println!(
-            "Error generating man page authors section: {}",
-            result.unwrap_err()
-        );
-    }
-
-    println!("Wrote man page to {}", path.join("adborc.man").display());
-    return;
-}
-
 enum ResponseType {
     System,
     MarketMaker,
@@ -889,24 +758,24 @@ impl Cli {
                     filters.push(DeviceFilter::IsAvailable(is_available));
                 }
 
-                if let Some(device_ids) = device_ids.as_ref() {
-                    let device_ids = HashSet::from_iter(device_ids.iter().cloned());
+                if let Some(device_ids) = device_ids {
+                    let device_ids = HashSet::from_iter(device_ids);
                     filters.push(DeviceFilter::DeviceIds(device_ids));
                 }
-                if let Some(device_names) = device_names.as_ref() {
-                    let device_names = HashSet::from_iter(device_names.iter().cloned());
+                if let Some(device_names) = device_names {
+                    let device_names = HashSet::from_iter(device_names);
                     filters.push(DeviceFilter::DeviceNames(device_names));
                 }
-                if let Some(device_models) = device_models.as_ref() {
-                    let device_models = HashSet::from_iter(device_models.iter().cloned());
+                if let Some(device_models) = device_models {
+                    let device_models = HashSet::from_iter(device_models);
                     filters.push(DeviceFilter::DeviceModels(device_models));
                 }
-                if let Some(supplied_by) = supplied_by.as_ref() {
-                    let supplied_by = HashSet::from_iter(supplied_by.iter().cloned());
+                if let Some(supplied_by) = supplied_by {
+                    let supplied_by = HashSet::from_iter(supplied_by);
                     filters.push(DeviceFilter::SupplierNames(supplied_by));
                 }
-                if let Some(reserved_by) = reserved_by.as_ref() {
-                    let reserved_by = HashSet::from_iter(reserved_by.iter().cloned());
+                if let Some(reserved_by) = reserved_by {
+                    let reserved_by = HashSet::from_iter(reserved_by);
                     filters.push(DeviceFilter::ConsumerNames(reserved_by));
                 }
                 let filter_vec = DeviceFilterVec { filters };
@@ -1004,4 +873,136 @@ impl Cli {
             }
         }
     }
+}
+
+/// Implementation for mangen command, available only when mangen feature is enabled.
+#[cfg(feature = "mangen")]
+fn mangen(path: Option<String>) {
+    use clap::CommandFactory;
+    use clap_mangen::Man;
+    use std::env;
+    use std::fs::File;
+    use std::path::PathBuf;
+
+    let path = if path.is_none() {
+        env::current_exe().unwrap().parent().unwrap().to_path_buf()
+    } else {
+        let temp_path = PathBuf::from(path.as_ref().unwrap());
+        if temp_path.exists() && temp_path.is_dir() {
+            temp_path
+        } else {
+            println!("Invalid path specified");
+            return;
+        }
+    };
+    let out_file = File::create(path.join("adborc.man"));
+    if out_file.is_err() {
+        println!(
+            "Error creating output file: {}\n{}",
+            path.join("adborc.man").display(),
+            out_file.unwrap_err()
+        );
+        return;
+    }
+    let mut out_file = out_file.unwrap();
+    let cli_command = Cli::command();
+    let marketmaker_subcommand = cli_command.find_subcommand("marketmaker").unwrap();
+    let supplier_subcommand = cli_command.find_subcommand("supplier").unwrap();
+    let consumer_subcommand = cli_command.find_subcommand("consumer").unwrap();
+
+    let result = Man::new(cli_command.to_owned()).render_title(&mut out_file);
+
+    if result.is_err() {
+        println!("Error generating man page title: {}", result.unwrap_err());
+    }
+
+    let result = Man::new(cli_command.to_owned()).render_name_section(&mut out_file);
+
+    if result.is_err() {
+        println!(
+            "Error generating man page name section: {}",
+            result.unwrap_err()
+        );
+    }
+
+    let result = Man::new(cli_command.to_owned()).render_synopsis_section(&mut out_file);
+
+    if result.is_err() {
+        println!(
+            "Error generating man page synopsis: {}",
+            result.unwrap_err()
+        );
+    }
+
+    let result = Man::new(cli_command.to_owned()).render_description_section(&mut out_file);
+
+    if result.is_err() {
+        println!(
+            "Error generating man page description: {}",
+            result.unwrap_err()
+        );
+    }
+
+    let result = Man::new(cli_command.to_owned()).render_options_section(&mut out_file);
+
+    if result.is_err() {
+        println!("Error generating man page options: {}", result.unwrap_err());
+    }
+
+    let result = Man::new(cli_command.to_owned()).render_subcommands_section(&mut out_file);
+
+    if result.is_err() {
+        println!(
+            "Error generating man page subcommands: {}",
+            result.unwrap_err()
+        );
+    }
+
+    let result = Man::new(marketmaker_subcommand.to_owned()).render_subcommands_section(&mut out_file);
+
+    if result.is_err() {
+        println!(
+            "Error writing MarketMaker subcommands: {}",
+            result.unwrap_err()
+        );
+    }
+
+    let result = Man::new(supplier_subcommand.to_owned()).render_subcommands_section(&mut out_file);
+
+    if result.is_err() {
+        println!(
+            "Error writing Supplier subcommands: {}",
+            result.unwrap_err()
+        );
+    }
+
+    let result = Man::new(consumer_subcommand.to_owned()).render_subcommands_section(&mut out_file);
+
+    if result.is_err() {
+        println!(
+            "Error writing Consumer subcommands: {}",
+            result.unwrap_err()
+        );
+    }
+
+    let result = Man::new(cli_command.to_owned()).render_version_section(&mut out_file);
+
+    if result.is_err() {
+        println!(
+            "Error generating man page version section: {}",
+            result.unwrap_err()
+        );
+    }
+
+    let result = Man::new(cli_command.to_owned()).render_authors_section(&mut out_file);
+
+    if result.is_err() {
+        println!(
+            "Error generating man page authors section: {}",
+            result.unwrap_err()
+        );
+    }
+
+    println!("Wrote man page to {}", path.join("adborc.man").display());
+    return;
 }
