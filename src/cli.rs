@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 
 use log::error;
 use std::collections::HashSet;
-use std::io;
+use std::io::{self, Error};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 
 #[derive(Parser)]
@@ -440,6 +440,40 @@ fn mangen(path: &Option<String>) {
     return;
 }
 
+enum ResponseType {
+    System,
+    MarketMaker,
+    Supplier,
+    Consumer,
+}
+
+fn map_processing_error(error: Error, res_type: ResponseType) -> String {
+    match res_type {
+        ResponseType::System => serde_json::to_string(&SysStateResponse::RequestProcessingError {
+            reason: format!("{}", error),
+        })
+        .unwrap(),
+        ResponseType::MarketMaker => {
+            serde_json::to_string(&MarketMakerResponse::RequestProcessingError {
+                reason: format!("{}", error),
+            })
+            .unwrap()
+        }
+        ResponseType::Supplier => {
+            serde_json::to_string(&SupplierResponse::RequestProcessingError {
+                reason: format!("{}", error),
+            })
+            .unwrap()
+        }
+        ResponseType::Consumer => {
+            serde_json::to_string(&ConsumerResponse::RequestProcessingError {
+                reason: format!("{}", error),
+            })
+            .unwrap()
+        }
+    }
+}
+
 impl Cli {
     pub fn process(&self) {
         #[cfg(feature = "mangen")]
@@ -534,28 +568,36 @@ impl Cli {
             Commands::Status => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::GetState)).unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
             Commands::Shutdown => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::Shutdown)).unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
             Commands::GetNetworkId => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::GetPeerId)).unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
             Commands::Check => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::SystemCheck)).unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -565,7 +607,9 @@ impl Cli {
                         adb_path: path.to_owned(),
                     }))
                     .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -575,7 +619,9 @@ impl Cli {
                         scrcpy_path: path.to_owned(),
                     }))
                     .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -594,7 +640,9 @@ impl Cli {
                 let request =
                     serde_json::to_string(&Request::MarketMaker(MarketMakerRequest::Status))
                         .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
                 let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -602,7 +650,9 @@ impl Cli {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::StartMarketMaker))
                         .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -610,7 +660,9 @@ impl Cli {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::StopMarketMaker))
                         .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -618,7 +670,9 @@ impl Cli {
                 let request =
                     serde_json::to_string(&Request::MarketMaker(MarketMakerRequest::UseWhitelist))
                         .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
                 let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -627,7 +681,9 @@ impl Cli {
                     MarketMakerRequest::ResetWhitelist,
                 ))
                 .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
                 let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -638,7 +694,9 @@ impl Cli {
                     },
                 ))
                 .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
                 let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -649,7 +707,9 @@ impl Cli {
                     },
                 ))
                 .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
                 let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -660,7 +720,9 @@ impl Cli {
                     },
                 ))
                 .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
                 let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -671,7 +733,9 @@ impl Cli {
                     },
                 ))
                 .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
                 let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -683,7 +747,9 @@ impl Cli {
             SupplierCommands::Status => {
                 let request =
                     serde_json::to_string(&Request::Supplier(SupplierRequest::Status)).unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Supplier));
                 let response = serde_json::from_str::<SupplierResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -701,14 +767,18 @@ impl Cli {
                         secure_comms: *secure,
                     }))
                     .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
             SupplierCommands::Stop => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::StopSupplier)).unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -718,7 +788,9 @@ impl Cli {
                         devices: devices.to_owned(),
                     }))
                     .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Supplier));
                 let response = serde_json::from_str::<SupplierResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -729,7 +801,9 @@ impl Cli {
                         force: *force,
                     }))
                     .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Supplier));
                 let response = serde_json::from_str::<SupplierResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -741,7 +815,9 @@ impl Cli {
             ConsumerCommands::Status => {
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::Status)).unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -753,14 +829,18 @@ impl Cli {
                         name: user.to_owned(),
                     }))
                     .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
             ConsumerCommands::Stop => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::StopConsumer)).unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
                 let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -771,7 +851,9 @@ impl Cli {
                         no_use: *no_default,
                     }))
                     .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -785,7 +867,9 @@ impl Cli {
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::ReleaseAllDevices))
                         .unwrap()
                 };
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -793,7 +877,9 @@ impl Cli {
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::GetAvailableDevices))
                         .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -836,14 +922,18 @@ impl Cli {
                     ConsumerRequest::GetDevicesByFilter { filter_vec },
                 ))
                 .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
             }
             ConsumerCommands::ListReserved => {
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::Status)).unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 match response {
                     ConsumerResponse::Status { state } => {
@@ -876,7 +966,9 @@ impl Cli {
                         device_id: device.to_owned(),
                     }))
                     .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -894,7 +986,9 @@ impl Cli {
                         bit_rate: *bit_rate,
                     }))
                     .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
             }
@@ -910,7 +1004,9 @@ impl Cli {
                         max_size: *max_size,
                     }))
                     .unwrap();
-                let response = client.send(&request, None).unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
             }
