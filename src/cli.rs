@@ -310,7 +310,7 @@ fn init_listener() -> io::Result<()> {
 }
 
 #[cfg(feature = "mangen")]
-fn mangen(path: &Option<String>) {
+fn mangen(path: Option<String>) {
     use clap::CommandFactory;
     use clap_mangen::Man;
     use std::env;
@@ -475,11 +475,11 @@ fn map_processing_error(error: Error, res_type: ResponseType) -> String {
 }
 
 impl Cli {
-    pub fn process(&self) {
+    pub fn process(self) {
         #[cfg(feature = "mangen")]
         {
             // Process 'mangen' command separately.
-            if let Commands::Mangen { path } = &self.command {
+            if let Commands::Mangen { path } = self.command {
                 mangen(path);
                 return;
             }
@@ -564,7 +564,7 @@ impl Cli {
 
         let client = TCPClient::new("127.0.0.1", SysStateDefaultConfig::BIND_PORT).unwrap();
 
-        match &self.command {
+        match self.command {
             Commands::Status => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::GetState)).unwrap();
@@ -604,7 +604,7 @@ impl Cli {
             Commands::SetAdbPath { path } => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::SetAdbPath {
-                        adb_path: path.to_owned(),
+                        adb_path: path,
                     }))
                     .unwrap();
                 let response = client
@@ -616,7 +616,7 @@ impl Cli {
             Commands::SetScrcpyPath { path } => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::SetScrcpyPath {
-                        scrcpy_path: path.to_owned(),
+                        scrcpy_path: path,
                     }))
                     .unwrap();
                 let response = client
@@ -634,7 +634,7 @@ impl Cli {
         }
     }
 
-    fn process_market_maker_commands(command: &MarketMakerCommands, client: TCPClient) {
+    fn process_market_maker_commands(command: MarketMakerCommands, client: TCPClient) {
         match command {
             MarketMakerCommands::Status => {
                 let request =
@@ -689,9 +689,7 @@ impl Cli {
             }
             MarketMakerCommands::AddSupplier { peer_id } => {
                 let request = serde_json::to_string(&Request::MarketMaker(
-                    MarketMakerRequest::WhitelistSupplier {
-                        key: peer_id.clone(),
-                    },
+                    MarketMakerRequest::WhitelistSupplier { key: peer_id },
                 ))
                 .unwrap();
                 let response = client
@@ -702,9 +700,7 @@ impl Cli {
             }
             MarketMakerCommands::RemoveSupplier { peer_id } => {
                 let request = serde_json::to_string(&Request::MarketMaker(
-                    MarketMakerRequest::UnwhitelistSupplier {
-                        key: peer_id.clone(),
-                    },
+                    MarketMakerRequest::UnwhitelistSupplier { key: peer_id },
                 ))
                 .unwrap();
                 let response = client
@@ -715,9 +711,7 @@ impl Cli {
             }
             MarketMakerCommands::AddConsumer { peer_id } => {
                 let request = serde_json::to_string(&Request::MarketMaker(
-                    MarketMakerRequest::WhitelistConsumer {
-                        key: peer_id.clone(),
-                    },
+                    MarketMakerRequest::WhitelistConsumer { key: peer_id },
                 ))
                 .unwrap();
                 let response = client
@@ -728,9 +722,7 @@ impl Cli {
             }
             MarketMakerCommands::RemoveConsumer { peer_id } => {
                 let request = serde_json::to_string(&Request::MarketMaker(
-                    MarketMakerRequest::UnwhitelistConsumer {
-                        key: peer_id.clone(),
-                    },
+                    MarketMakerRequest::UnwhitelistConsumer { key: peer_id },
                 ))
                 .unwrap();
                 let response = client
@@ -742,7 +734,7 @@ impl Cli {
         }
     }
 
-    fn process_supplier_commands(command: &SupplierCommands, client: TCPClient) {
+    fn process_supplier_commands(command: SupplierCommands, client: TCPClient) {
         match command {
             SupplierCommands::Status => {
                 let request =
@@ -761,10 +753,10 @@ impl Cli {
             } => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::StartSupplier {
-                        mm_host: remote.to_owned(),
-                        mm_port: *port,
-                        name: user.to_owned(),
-                        secure_comms: *secure,
+                        mm_host: remote,
+                        mm_port: port,
+                        name: user,
+                        secure_comms: secure,
                     }))
                     .unwrap();
                 let response = client
@@ -785,7 +777,7 @@ impl Cli {
             SupplierCommands::Supply { devices } => {
                 let request =
                     serde_json::to_string(&Request::Supplier(SupplierRequest::SupplyDevices {
-                        devices: devices.to_owned(),
+                        devices,
                     }))
                     .unwrap();
                 let response = client
@@ -797,8 +789,8 @@ impl Cli {
             SupplierCommands::Reclaim { device, force } => {
                 let request =
                     serde_json::to_string(&Request::Supplier(SupplierRequest::ReclaimDevice {
-                        device_id: device.to_owned(),
-                        force: *force,
+                        device_id: device,
+                        force,
                     }))
                     .unwrap();
                 let response = client
@@ -810,7 +802,7 @@ impl Cli {
         }
     }
 
-    fn process_consumer_commands(command: &ConsumerCommands, client: TCPClient) {
+    fn process_consumer_commands(command: ConsumerCommands, client: TCPClient) {
         match command {
             ConsumerCommands::Status => {
                 let request =
@@ -824,9 +816,9 @@ impl Cli {
             ConsumerCommands::Start { remote, port, user } => {
                 let request =
                     serde_json::to_string(&Request::System(SysStateRequest::StartConsumer {
-                        mm_host: remote.to_owned(),
-                        mm_port: *port,
-                        name: user.to_owned(),
+                        mm_host: remote,
+                        mm_port: port,
+                        name: user,
                     }))
                     .unwrap();
                 let response = client
@@ -847,8 +839,8 @@ impl Cli {
             ConsumerCommands::Reserve { device, no_default } => {
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::ReserveDevice {
-                        device_id: device.to_owned(),
-                        no_use: *no_default,
+                        device_id: device,
+                        no_use: no_default,
                     }))
                     .unwrap();
                 let response = client
@@ -894,7 +886,7 @@ impl Cli {
                 let mut filters = Vec::new();
 
                 if let Some(is_available) = is_available {
-                    filters.push(DeviceFilter::IsAvailable(*is_available));
+                    filters.push(DeviceFilter::IsAvailable(is_available));
                 }
 
                 if let Some(device_ids) = device_ids.as_ref() {
@@ -963,7 +955,7 @@ impl Cli {
             ConsumerCommands::SetDefault { device } => {
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::UseDevice {
-                        device_id: device.to_owned(),
+                        device_id: device,
                     }))
                     .unwrap();
                 let response = client
@@ -980,10 +972,10 @@ impl Cli {
             } => {
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::StartScrCpy {
-                        device_id: device.to_owned(),
-                        max_size: *max_size,
-                        max_fps: *max_fps,
-                        bit_rate: *bit_rate,
+                        device_id: device,
+                        max_size,
+                        max_fps,
+                        bit_rate,
                     }))
                     .unwrap();
                 let response = client
@@ -999,9 +991,9 @@ impl Cli {
             } => {
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::SetScrCpyDefaults {
-                        max_fps: *max_fps,
-                        bit_rate: *bit_rate,
-                        max_size: *max_size,
+                        max_fps,
+                        bit_rate,
+                        max_size,
                     }))
                     .unwrap();
                 let response = client
