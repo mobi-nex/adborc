@@ -56,6 +56,8 @@ pub(crate) fn test_with_logs() {
     }
 }
 
+mod scrcpy_utils;
+
 /// Utils related to `adb` and `scrcpy`.
 pub mod adb_utils {
 
@@ -70,6 +72,8 @@ pub mod adb_utils {
     use std::path::PathBuf;
     use std::process::{Child, Command, Stdio};
     use std::sync::Mutex;
+    // We re-export all the scrcpy_utils from adb_utils.
+    pub use scrcpy_utils::*;
 
     #[cfg(windows)]
     use std::os::windows::process::CommandExt;
@@ -155,83 +159,6 @@ pub mod adb_utils {
             }
             device_info
         }
-    }
-
-    /// Arguments that may be passed to the `SCRCPY` executable.
-    /// Currently supported arguments:
-    /// - `--max-fps`: Maximum frames per second.
-    /// - `--bit-rate`: Bit rate in Mbps.
-    /// - `--max-size`: Maximum size of the device screen.
-    #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq)]
-    pub enum ScrCpyArgs {
-        /// Maximum frames per second. Corresponds to the `--max-fps` argument.
-        MaxFps(u8),
-        /// Bit rate in Mbps. Corresponds to the `--bit-rate` argument.
-        BitRate(u32),
-        /// Maximum size of the device screen.
-        /// Corresponds to the `--max-size` argument.
-        MaxSize(u16),
-    }
-
-    // Implement PartialEq for ScrCpyArgs such that, ScrCpyArgs::MaxFps(30) and ScrCpyArgs::MaxFps(60)
-    // are equal.
-    impl PartialEq for ScrCpyArgs {
-        fn eq(&self, other: &Self) -> bool {
-            matches!(
-                (self, other),
-                (ScrCpyArgs::MaxFps(_), ScrCpyArgs::MaxFps(_))
-                    | (ScrCpyArgs::BitRate(_), ScrCpyArgs::BitRate(_))
-                    | (ScrCpyArgs::MaxSize(_), ScrCpyArgs::MaxSize(_))
-            )
-        }
-    }
-
-    // implment hashing for ScrCpyArgs such that, ScrCpyArgs::MaxFps(30) and ScrCpyArgs::MaxFps(60)
-    // have same hash value.
-    impl std::hash::Hash for ScrCpyArgs {
-        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            match self {
-                ScrCpyArgs::MaxFps(_) => {
-                    "max-fps".hash(state);
-                }
-                ScrCpyArgs::BitRate(_) => {
-                    "bit-rate".hash(state);
-                }
-                ScrCpyArgs::MaxSize(_) => {
-                    "max-size".hash(state);
-                }
-            }
-        }
-    }
-
-    impl Display for ScrCpyArgs {
-        fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-            match self {
-                ScrCpyArgs::MaxFps(max_fps) => write!(f, "--max-fps={}", max_fps),
-                ScrCpyArgs::BitRate(bit_rate) => write!(f, "--bit-rate={}", bit_rate),
-                ScrCpyArgs::MaxSize(max_size) => write!(f, "--max-size={}", max_size),
-            }
-        }
-    }
-
-    #[allow(clippy::match_single_binding)]
-    fn get_min_required_version(arg: &ScrCpyArgs) -> f32 {
-        match arg {
-            // Add any arguments that have version requirements higher than MIN_SCRCPY_VER here.
-            // Eg:
-            // ScrCpyArgs::BitRate(_) => 1.17,
-
-            // Default case. Minimum required version is MIN_SCRCPY_VER.
-            // NOTE: This will break if MIN_SCRCPY_VER > 100. We will handle
-            // that case when it arises. This will also break if SCRCPY_MAJOR_VER
-            // is bumped to 2. But a lot of things will break if that happens.
-            _ => 1.0 + (MIN_SCRCPY_VER as f32) / 100.0,
-        }
-    }
-
-    fn check_scrcpy_arg_version(arg: &ScrCpyArgs, scrcpy_version: f32) -> bool {
-        let min_required_version = get_min_required_version(arg);
-        scrcpy_version >= min_required_version
     }
 
     #[derive(Default)]
