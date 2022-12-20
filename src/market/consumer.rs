@@ -1116,6 +1116,11 @@ impl Consumer {
                     .unwrap()
             }
 
+            ConsumerRequest::GetScrCpyDefaults if peer_addr.ip().is_loopback() => {
+                let args = ConsumerState::get_scrcpy_args().into_iter().collect();
+                serde_json::to_string(&ConsumerResponse::ScrCpyDefaults { args }).unwrap()
+            }
+
             // Requests from Market Maker.
             ConsumerRequest::SupplierDisconnected { device_id } if is_market_maker() => {
                 let device_id_clone = device_id.clone();

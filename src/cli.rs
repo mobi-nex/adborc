@@ -293,6 +293,8 @@ pub enum ConsumerCommands {
         #[clap(short, long, value_parser)]
         bit_rate: Option<u32>,
     },
+    /// Get the default arguments for `scrcpy` if set using `adborc consumer set-scrcpy-args`.
+    GetScrcpyArgs,
 }
 
 fn check_listener() -> bool {
@@ -881,6 +883,16 @@ impl Cli {
                         scrcpy_args,
                     }))
                     .unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
+                let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+                println!("{}", response);
+            }
+            ConsumerCommands::GetScrcpyArgs => {
+                let request =
+                    serde_json::to_string(&Request::Consumer(ConsumerRequest::GetScrCpyDefaults))
+                        .unwrap();
                 let response = client
                     .send(&request, None)
                     .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));

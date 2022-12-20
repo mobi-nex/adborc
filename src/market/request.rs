@@ -659,6 +659,7 @@ pub enum ConsumerRequest {
     SetScrCpyDefaults {
         scrcpy_args: Vec<ScrCpyArgs>,
     },
+    GetScrCpyDefaults,
 
     // Requests from MarketMaker.
     MarketMakerTerminating,
@@ -711,6 +712,9 @@ pub enum ConsumerResponse {
         reason: String,
     },
     ScrCpyDefaultsSet {
+        args: Vec<ScrCpyArgs>,
+    },
+    ScrCpyDefaults {
         args: Vec<ScrCpyArgs>,
     },
 
@@ -791,6 +795,13 @@ impl Display for ConsumerResponse {
             }
             ConsumerResponse::ScrCpyDefaultsSet { args } => {
                 writeln!(f, "ScrCpy defaults set:").unwrap();
+                for a in args {
+                    write!(f, "{}   ", a).unwrap();
+                }
+                writeln!(f)
+            }
+            ConsumerResponse::ScrCpyDefaults { args } => {
+                writeln!(f, "ScrCpy defaults:").unwrap();
                 for a in args {
                     write!(f, "{}   ", a).unwrap();
                 }
