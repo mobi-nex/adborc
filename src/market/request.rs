@@ -654,14 +654,10 @@ pub enum ConsumerRequest {
     },
     StartScrCpy {
         device_id: String,
-        max_size: Option<u16>,
-        bit_rate: Option<u32>,
-        max_fps: Option<u8>,
+        scrcpy_args: Vec<ScrCpyArgs>,
     },
     SetScrCpyDefaults {
-        max_fps: Option<u8>,
-        max_size: Option<u16>,
-        bit_rate: Option<u32>,
+        scrcpy_args: Vec<ScrCpyArgs>,
     },
 
     // Requests from MarketMaker.
@@ -715,7 +711,7 @@ pub enum ConsumerResponse {
         reason: String,
     },
     ScrCpyDefaultsSet {
-        args: ScrCpyArgs,
+        args: Vec<ScrCpyArgs>,
     },
 
     ErrorGettingDevices {
@@ -794,7 +790,11 @@ impl Display for ConsumerResponse {
                 write!(f, "Screen mirroring failed: {}", reason)
             }
             ConsumerResponse::ScrCpyDefaultsSet { args } => {
-                write!(f, "ScrCpy defaults set:\n{}", args)
+                writeln!(f, "ScrCpy defaults set:").unwrap();
+                for a in args {
+                    write!(f, "{}   ", a).unwrap();
+                }
+                writeln!(f)
             }
             ConsumerResponse::ErrorGettingDevices { reason } => {
                 write!(f, "Error getting devices: {}", reason)

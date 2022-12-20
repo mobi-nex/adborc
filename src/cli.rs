@@ -1,6 +1,6 @@
 use crate::market::{request::*, DeviceFilter, DeviceFilterVec, SysState};
 use crate::net::TCPClient;
-use crate::util::SysStateDefaultConfig;
+use crate::util::{adb_utils::ScrCpyArgs, SysStateDefaultConfig};
 use clap::{Parser, Subcommand};
 
 use log::error;
@@ -839,12 +839,20 @@ impl Cli {
                 max_fps,
                 bit_rate,
             } => {
+                let mut scrcpy_args = Vec::new();
+                if let Some(max_size) = max_size {
+                    scrcpy_args.push(ScrCpyArgs::MaxSize(max_size));
+                }
+                if let Some(max_fps) = max_fps {
+                    scrcpy_args.push(ScrCpyArgs::MaxFps(max_fps));
+                }
+                if let Some(bit_rate) = bit_rate {
+                    scrcpy_args.push(ScrCpyArgs::BitRate(bit_rate));
+                }
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::StartScrCpy {
                         device_id: device,
-                        max_size,
-                        max_fps,
-                        bit_rate,
+                        scrcpy_args,
                     }))
                     .unwrap();
                 let response = client
@@ -858,11 +866,19 @@ impl Cli {
                 bit_rate,
                 max_size,
             } => {
+                let mut scrcpy_args = Vec::new();
+                if let Some(max_size) = max_size {
+                    scrcpy_args.push(ScrCpyArgs::MaxSize(max_size));
+                }
+                if let Some(max_fps) = max_fps {
+                    scrcpy_args.push(ScrCpyArgs::MaxFps(max_fps));
+                }
+                if let Some(bit_rate) = bit_rate {
+                    scrcpy_args.push(ScrCpyArgs::BitRate(bit_rate));
+                }
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::SetScrCpyDefaults {
-                        max_fps,
-                        bit_rate,
-                        max_size,
+                        scrcpy_args,
                     }))
                     .unwrap();
                 let response = client
@@ -958,7 +974,8 @@ fn mangen(path: Option<String>) {
         );
     }
 
-    let result = Man::new(marketmaker_subcommand.to_owned()).render_subcommands_section(&mut out_file);
+    let result =
+        Man::new(marketmaker_subcommand.to_owned()).render_subcommands_section(&mut out_file);
 
     if result.is_err() {
         println!(

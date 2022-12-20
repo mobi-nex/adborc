@@ -32,7 +32,7 @@ pub(super) struct ConsumerState {
     name: String,
     // Public key of the MarketMaker.
     mm_pub_key: Option<Key>,
-    scrcpy_args: ScrCpyArgs,
+    scrcpy_args: HashSet<ScrCpyArgs>,
 }
 
 #[derive(Debug, Default)]
@@ -193,9 +193,9 @@ impl ConsumerState {
     }
 
     #[inline(always)]
-    fn set_scrcpy_defaults(args: ScrCpyArgs) {
+    fn set_scrcpy_defaults(args: std::slice::Iter<ScrCpyArgs>) {
         let mut state = CONSUMER_STATE.lock().unwrap();
-        state.scrcpy_args = args;
+        state.scrcpy_args = HashSet::from_iter(args.cloned());
     }
 
     // Turning off the clippy warning here because we explicitly drop
@@ -292,9 +292,9 @@ impl ConsumerState {
     }
 
     #[inline(always)]
-    fn get_scrcpy_args() -> ScrCpyArgs {
+    fn get_scrcpy_args() -> HashSet<ScrCpyArgs> {
         let state = CONSUMER_STATE.lock().unwrap();
-        state.scrcpy_args
+        state.scrcpy_args.clone()
     }
 
     #[inline(always)]
@@ -634,12 +634,7 @@ impl Consumer {
         Ok(())
     }
 
-    fn start_scrcpy(
-        device_id: &str,
-        max_size: Option<u16>,
-        max_fps: Option<u8>,
-        bit_rate: Option<u32>,
-    ) -> io::Result<()> {
+    fn start_scrcpy(device_id: &str, user_args: Vec<ScrCpyArgs>) -> io::Result<()> {
         let device = ConsumerState::get_device(device_id);
         if device.is_none() {
             return Err(io::Error::new(io::ErrorKind::Other, "Device not reserved."));
@@ -669,12 +664,12 @@ impl Consumer {
             )?;
             ScrCpyState::add_portforwarder(device_id, portforwarder);
         }
-        let scrcpy_defaults = ConsumerState::get_scrcpy_args();
-        let scrcpy_args = ScrCpyArgs {
-            max_size: max_size.unwrap_or(scrcpy_defaults.max_size),
-            max_fps: max_fps.unwrap_or(scrcpy_defaults.max_fps),
-            bit_rate: bit_rate.unwrap_or(scrcpy_defaults.bit_rate),
-        };
+        let mut scrcpy_defaults = ConsumerState::get_scrcpy_args();
+        for arg in user_args {
+            // Remove the default arg if it is being overridden by the user.
+            scrcpy_defaults.replace(arg);
+        }
+        let scrcpy_args = scrcpy_defaults.into_iter().collect();
         let mut child = adb_utils::start_scrcpy(adb_port, scrcpy_port, scrcpy_args)?;
         if let Some(stderr) = child.stderr.take() {
             let reader = BufReader::new(stderr);
@@ -1094,9 +1089,7 @@ impl Consumer {
 
             ConsumerRequest::StartScrCpy {
                 device_id,
-                max_size,
-                max_fps,
-                bit_rate,
+                scrcpy_args,
             } if peer_addr.ip().is_loopback() => {
                 if !ConsumerState::is_device_reserved(&device_id) {
                     return serde_json::to_string(&ConsumerResponse::StartScrCpyFailure {
@@ -1105,7 +1098,7 @@ impl Consumer {
                     })
                     .unwrap();
                 }
-                if let Err(e) = Consumer::start_scrcpy(&device_id, max_size, max_fps, bit_rate) {
+                if let Err(e) = Consumer::start_scrcpy(&device_id, scrcpy_args) {
                     serde_json::to_string(&ConsumerResponse::StartScrCpyFailure {
                         reason: format!("Could not start scrcpy: {}", e),
                     })
@@ -1116,18 +1109,8 @@ impl Consumer {
                 }
             }
 
-            ConsumerRequest::SetScrCpyDefaults {
-                max_fps,
-                max_size,
-                bit_rate,
-            } if peer_addr.ip().is_loopback() => {
-                let default_args = ConsumerState::get_scrcpy_args();
-                let scrcpy_args = ScrCpyArgs {
-                    max_fps: max_fps.unwrap_or(default_args.max_fps),
-                    max_size: max_size.unwrap_or(default_args.max_size),
-                    bit_rate: bit_rate.unwrap_or(default_args.bit_rate),
-                };
-                ConsumerState::set_scrcpy_defaults(scrcpy_args);
+            ConsumerRequest::SetScrCpyDefaults { scrcpy_args } if peer_addr.ip().is_loopback() => {
+                ConsumerState::set_scrcpy_defaults(scrcpy_args.iter());
 
                 serde_json::to_string(&ConsumerResponse::ScrCpyDefaultsSet { args: scrcpy_args })
                     .unwrap()
