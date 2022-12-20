@@ -56,6 +56,8 @@ pub(crate) fn test_with_logs() {
     }
 }
 
+mod scrcpy_utils;
+
 /// Utils related to `adb` and `scrcpy`.
 pub mod adb_utils {
 
@@ -70,6 +72,8 @@ pub mod adb_utils {
     use std::path::PathBuf;
     use std::process::{Child, Command, Stdio};
     use std::sync::Mutex;
+    // We re-export all the scrcpy_utils from adb_utils.
+    pub use scrcpy_utils::*;
 
     #[cfg(windows)]
     use std::os::windows::process::CommandExt;
@@ -101,7 +105,7 @@ pub mod adb_utils {
     /// Struct to hold scrcpy version information.
     #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
     pub struct ScrcpyVersionInfo {
-        /// The major version of scrcpy.
+        /// Complete version string of scrcpy.
         pub version: String,
         /// Path to the scrcpy executable.
         pub path: String,
@@ -154,51 +158,6 @@ pub mod adb_utils {
                 device_info.model = split[2].split(": ").last().unwrap_or_default().to_string();
             }
             device_info
-        }
-    }
-
-    /// Arguments to be passed to the `SCRCPY` executable.
-    /// Currently supported arguments:
-    /// - `--max-fps`: Maximum frames per second.
-    /// - `--bit-rate`: Bit rate in Mbps.
-    /// - `--max-size`: Maximum size of the device screen.
-    #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-    pub struct ScrCpyArgs {
-        /// Maximum frames per second. Corresponds to the `--max-fps` argument.
-        pub max_fps: u8,
-        /// Bit rate in Mbps. Corresponds to the `--bit-rate` argument.
-        pub bit_rate: u32,
-        /// Maximum size of the device screen.
-        /// Corresponds to the `--max-size` argument.
-        pub max_size: u16,
-    }
-
-    impl Default for ScrCpyArgs {
-        fn default() -> Self {
-            ScrCpyArgs {
-                max_fps: 30,
-                bit_rate: 2_000_000,
-                max_size: 1920,
-            }
-        }
-    }
-    impl Display for ScrCpyArgs {
-        fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-            write!(
-                f,
-                "max-fps: {}\nbit-rate: {}\nmax-size: {}",
-                self.max_fps, self.bit_rate, self.max_size
-            )
-        }
-    }
-
-    impl ScrCpyArgs {
-        pub fn to_vec(&self) -> Vec<String> {
-            vec![
-                format!("--max-fps={}", self.max_fps),
-                format!("--bit-rate={}", self.bit_rate),
-                format!("--max-size={}", self.max_size),
-            ]
         }
     }
 
@@ -757,15 +716,20 @@ pub mod adb_utils {
             .expect("Failed to kill adb server for port");
     }
 
-    #[tokio::main]
-    pub(crate) async fn start_scrcpy(
+    pub(crate) fn start_scrcpy(
         adb_port: u16,
         port: u16,
-        scrcpy_args: ScrCpyArgs,
+        scrcpy_args: Vec<ScrCpyArgs>,
     ) -> io::Result<Child> {
+        let scrcpy_version = get_scrcpy_version()?.version;
+        let scrcpy_version = scrcpy_version.parse::<f32>().unwrap_or(0.0);
         debug!("Port allocated for scrcpy is: {}", port);
         let port_as_str = port.to_string();
-        let scrcpy_args_vec = scrcpy_args.to_vec();
+        let scrcpy_args_vec = scrcpy_args
+            .iter()
+            .filter(|&s| check_scrcpy_arg_version(s, scrcpy_version))
+            .map(|s| format!("{}", s))
+            .collect::<Vec<String>>();
         let mut scrcpy_args_vec = scrcpy_args_vec.iter().map(|s| s.as_str()).collect();
 
         let mut args = vec!["--port", port_as_str.as_str()];

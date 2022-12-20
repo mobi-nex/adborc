@@ -1,8 +1,10 @@
 use crate::market::{request::*, DeviceFilter, DeviceFilterVec, SysState};
 use crate::net::TCPClient;
-use crate::util::SysStateDefaultConfig;
+use crate::util::{
+    adb_utils::{self, ScrcpyCliArgs, SCRCPY_SHORTCUT_HELP},
+    SysStateDefaultConfig,
+};
 use clap::{Parser, Subcommand};
-
 use log::error;
 use std::collections::HashSet;
 use std::io::{self, Error};
@@ -266,33 +268,15 @@ pub enum ConsumerCommands {
         /// `device_id` of the device to start scrcpy for.
         #[clap(value_parser)]
         device: String,
-        /// Limit both the width and height of the video to value. The other dimension is computed so that the device
-        /// aspect-ratio is preserved. Default: 1920.
-        #[clap(short, long, value_parser)]
-        max_size: Option<u16>,
-        /// Limit the frame rate of screen capture (officially supported since Android 10, but may work on earlier
-        /// versions). Default: 30.
-        #[clap(long, value_parser)]
-        max_fps: Option<u8>,
-        /// Encode the video at the gitven bit-rate, expressed in bits/s. Default: 2000000.
-        #[clap(short, long, value_parser)]
-        bit_rate: Option<u32>,
+        #[clap(flatten)]
+        args: ScrcpyCliArgs,
     },
     /// Set the default arguments for `scrcpy`.
-    SetScrcpyArgs {
-        /// Limit both the width and height of the video to value. The other dimension is computed so that the device
-        /// aspect-ratio is preserved. Default: 1920.
-        #[clap(short, long, value_parser)]
-        max_size: Option<u16>,
-        /// Limit the frame rate of screen capture (officially supported since Android 10, but may work on earlier
-        /// versions). Default: 30.
-        #[clap(long, value_parser)]
-        max_fps: Option<u8>,
-        /// Encode the video at the gitven bit-rate, expressed in bits/s. Unit suffixes are supported: 'K' (x1000) and 'M'
-        /// (x1000000). Default: 2000000.
-        #[clap(short, long, value_parser)]
-        bit_rate: Option<u32>,
-    },
+    SetScrcpyArgs(ScrcpyCliArgs),
+    /// Get the default arguments for `scrcpy` if set using `adborc consumer set-scrcpy-args`.
+    GetScrcpyArgs,
+    /// Show scrcpy shortcuts.
+    ScrcpyShortcuts,
 }
 
 fn check_listener() -> bool {
@@ -833,18 +817,12 @@ impl Cli {
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
             }
-            ConsumerCommands::Scrcpy {
-                device,
-                max_size,
-                max_fps,
-                bit_rate,
-            } => {
+            ConsumerCommands::Scrcpy { device, args } => {
+                let scrcpy_args = adb_utils::get_scrcpy_args(args);
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::StartScrCpy {
                         device_id: device,
-                        max_size,
-                        max_fps,
-                        bit_rate,
+                        scrcpy_args,
                     }))
                     .unwrap();
                 let response = client
@@ -853,16 +831,11 @@ impl Cli {
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
             }
-            ConsumerCommands::SetScrcpyArgs {
-                max_fps,
-                bit_rate,
-                max_size,
-            } => {
+            ConsumerCommands::SetScrcpyArgs(args) => {
+                let scrcpy_args = adb_utils::get_scrcpy_args(args);
                 let request =
                     serde_json::to_string(&Request::Consumer(ConsumerRequest::SetScrCpyDefaults {
-                        max_fps,
-                        bit_rate,
-                        max_size,
+                        scrcpy_args,
                     }))
                     .unwrap();
                 let response = client
@@ -870,6 +843,19 @@ impl Cli {
                     .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
                 let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
                 println!("{}", response);
+            }
+            ConsumerCommands::GetScrcpyArgs => {
+                let request =
+                    serde_json::to_string(&Request::Consumer(ConsumerRequest::GetScrCpyDefaults))
+                        .unwrap();
+                let response = client
+                    .send(&request, None)
+                    .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
+                let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+                println!("{}", response);
+            }
+            ConsumerCommands::ScrcpyShortcuts => {
+                println!("{}", SCRCPY_SHORTCUT_HELP);
             }
         }
     }
@@ -958,7 +944,8 @@ fn mangen(path: Option<String>) {
         );
     }
 
-    let result = Man::new(marketmaker_subcommand.to_owned()).render_subcommands_section(&mut out_file);
+    let result =
+        Man::new(marketmaker_subcommand.to_owned()).render_subcommands_section(&mut out_file);
 
     if result.is_err() {
         println!(

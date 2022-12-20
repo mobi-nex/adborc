@@ -38,6 +38,7 @@
     - [release](#release)
     - [scrcpy](#scrcpy)
     - [set-scrcpy-args](#set-scrcpy-args)
+    - [get-scrcpy-args](#get-scrcpy-args)
     - [set-default](#set-default)
 - [License](#license)
 
@@ -385,28 +386,35 @@ If no `device-id` is specified, all reserved devices will be released.
 ### scrcpy
 
 ```bash
-adborc consumer scrcpy <device-id> [-m/--max-size <size>] [-b/--bit-rate <bit-rate>] [--max-fps <fps>]
+adborc consumer scrcpy <device-id> [scrcpy-args]
 ```
 
 Start device screen mirroring using [`scrcpy`](https://github.com/Genymobile/scrcpy) for a device.
 
+`scrcpy-args` are optional arguments to be passed to `scrcpy`. To get a list of available arguments,
+run:
+
+`adborc consumer scrcpy --help`.
 
 
 ### set-scrcpy-args
 
 ```bash
-adborc consumer set-scrcpy-args [-m/--max-size <size>] [-b/--bit-rate <bit-rate>] [--max-fps <fps>]
+adborc consumer set-scrcpy-args [scrcpy-args]
 ```
 
-Set the default arguments to be used when starting `scrcpy` for a device.
+Set the default arguments to be used when starting `scrcpy` for a device. To get a list of
+available arguments, run:
 
-`max-size`: Limit both the width and height of the video to value. The other dimension is computed so that the device
-        aspect-ratio is preserved. Default: 1920.
+`adborc consumer set-scrcpy-args --help`.
 
-`bit-rate`: Encode the video at the gitven bit-rate, expressed in bits/s. Default: 2000000.
+### get-scrcpy-args
 
-`max-fps`: Limit the frame rate of screen capture (officially supported since Android 10, but may work on earlier
-    versions). Default: 30.
+```bash
+adborc consumer get-scrcpy-args
+```
+
+Get the currently set default arguments to be used when starting `scrcpy` for a device.
 
 ### set-default
 
@@ -419,5 +427,6 @@ on the `Consumer` system using `adb` on the default port `5037` and extra port a
 are not required to access the device over `adb`.
 
 ## License
-*AdbOrc* is licensed under the __TO_BE_DECIDED__ license. See [LICENSE] for mor details.
-[**System**SarketMake*C*
+*AdbOrc* is licensed under the Apache License 2.0. See [LICENSE] for the full license text.
+
+[LICENSE]: LICENSE
