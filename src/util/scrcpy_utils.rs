@@ -334,23 +334,23 @@ impl Display for ScrCpyArgs {
     }
 }
 
-#[allow(clippy::match_single_binding)]
-fn get_min_required_version(arg: &ScrCpyArgs) -> f32 {
+#[inline(always)]
+fn get_min_required_version(arg: &ScrCpyArgs) -> u8 {
     match arg {
         // Add any arguments that have version requirements higher than MIN_SCRCPY_VER here.
         // Eg:
-        // ScrCpyArgs::BitRate(_) => 1.17,
-        ScrCpyArgs::StayAwake => 1.14,
+        // ScrCpyArgs::BitRate(_) => 17,
+        ScrCpyArgs::StayAwake => 14,
 
         // Default case. Minimum required version is MIN_SCRCPY_VER.
         // NOTE: This will break if MIN_SCRCPY_VER > 100. We will handle
         // that case when it arises. This will also break if SCRCPY_MAJOR_VER
         // is bumped to 2. But a lot of things will break if that happens.
-        _ => 1.0 + (MIN_SCRCPY_VER as f32) / 100.0,
+        _ => MIN_SCRCPY_VER,
     }
 }
 
-pub(crate) fn check_scrcpy_arg_version(arg: &ScrCpyArgs, scrcpy_version: f32) -> bool {
+pub(crate) fn check_scrcpy_arg_version(arg: &ScrCpyArgs, ver_number: u8) -> bool {
     let min_required_version = get_min_required_version(arg);
-    scrcpy_version >= min_required_version
+    ver_number >= min_required_version
 }

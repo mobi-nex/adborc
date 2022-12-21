@@ -907,21 +907,16 @@ impl From<AdbVersionInfo> for SupplierCheck {
         if ver_info.path.is_empty() {
             return SupplierCheck::AdbNotFound { ver_info };
         }
-        let ver_number = ver_info
-            .version
-            .split('.')
-            .last()
-            .unwrap()
-            .parse::<u8>()
-            .unwrap_or(0);
-        let rev_number = ver_info
-            .revision
-            .split('.')
-            .next()
-            .unwrap()
-            .parse::<u8>()
-            .unwrap_or(0);
-        if ver_number >= MIN_ADB_VER && rev_number >= MIN_ADB_REV {
+        let (ver_vec, rev_vec) = adb_utils::process_adb_ver_info(&ver_info);
+        if ver_vec.len() != 3 || rev_vec.len() != 1 {
+            return SupplierCheck::AdbNotSupported { ver_info };
+        }
+
+        // Currently only support adb 1.0.x
+        if ver_vec[0] != 1 || ver_vec[1] != 0 {
+            return SupplierCheck::AdbNotSupported { ver_info };
+        }
+        if ver_vec[2] >= MIN_ADB_VER && rev_vec[0] >= MIN_ADB_REV {
             SupplierCheck::Supported { ver_info }
         } else {
             SupplierCheck::AdbNotSupported { ver_info }
@@ -1050,25 +1045,33 @@ impl ConsumerCheck {
     }
 
     fn check_adb(adb_info: &AdbVersionInfo) -> bool {
-        let adb_ver_number = adb_info
-            .version
-            .split('.')
-            .last()
-            .unwrap()
-            .parse::<u8>()
-            .unwrap_or(0);
-        adb_ver_number >= MIN_ADB_VER
+        let (adb_ver_vec, _) = adb_utils::process_adb_ver_info(adb_info);
+
+        if adb_ver_vec.len() != 3 {
+            return false;
+        }
+
+        // Currently only support adb 1.0.x
+        if adb_ver_vec[0] != 1 || adb_ver_vec[1] != 0 {
+            false
+        } else {
+            adb_ver_vec[2] >= MIN_ADB_VER
+        }
     }
 
     fn check_scrcpy(scrcpy_info: &ScrcpyVersionInfo) -> bool {
-        let scrcpy_ver_number = scrcpy_info
-            .version
-            .split('.')
-            .last()
-            .unwrap()
-            .parse::<u8>()
-            .unwrap_or(0);
-        scrcpy_ver_number >= MIN_SCRCPY_VER
+        let scrcpy_ver_vec = adb_utils::process_scrcpy_ver_info(scrcpy_info);
+
+        if scrcpy_ver_vec.len() != 2 {
+            return false;
+        }
+
+        // Currently only support scrcpy 1.x
+        if scrcpy_ver_vec[0] != 1 {
+            false
+        } else {
+            scrcpy_ver_vec[1] >= MIN_SCRCPY_VER
+        }
     }
 }
 

@@ -350,31 +350,33 @@ pub mod adb_utils {
         }
     }
 
-    /// Check if adb version is valid.
-    /// Minimum supported adb version is 1.0.41.
-    /// For suppliers, minimum adb revision no. required is 33.
-    /// Returns true if valid, otherwise returns false.
-    #[allow(dead_code)]
-    pub(crate) fn check_adb_version(ver_info: &AdbVersionInfo, is_supplier: bool) -> bool {
-        let ver_number = ver_info
+    /// Process the AdbVersionInfo and return adb_version_vec, adb_revision_vec.
+    pub(crate) fn process_adb_ver_info(ver_info: &AdbVersionInfo) -> (Vec<u8>, Vec<u8>) {
+        let adb_ver_vec = ver_info
             .version
             .split('.')
-            .last()
-            .unwrap_or_default()
-            .parse::<u8>()
-            .unwrap_or(0);
-        if is_supplier {
-            let rev_number = ver_info
-                .revision
-                .split('.')
-                .next()
-                .unwrap_or_default()
-                .parse::<u8>()
-                .unwrap_or(0);
-            ver_number >= MIN_ADB_VER && rev_number >= MIN_ADB_REV
-        } else {
-            ver_number >= MIN_ADB_VER
-        }
+            .take(3)
+            .map(|s| s.parse::<u8>().unwrap_or(255))
+            .collect::<Vec<u8>>();
+
+        let adb_rev_vec = ver_info
+            .revision
+            .split('.')
+            .take(1)
+            .map(|s| s.parse::<u8>().unwrap_or(255))
+            .collect::<Vec<u8>>();
+        (adb_ver_vec, adb_rev_vec)
+    }
+
+    /// Process the ScrcpyVersionInfo and return scrcpy_version_vec.
+    pub(crate) fn process_scrcpy_ver_info(ver_info: &ScrcpyVersionInfo) -> Vec<u8> {
+        let scrcpy_ver_vec = ver_info
+            .version
+            .split('.')
+            .take(2)
+            .map(|s| s.parse::<u8>().unwrap_or(255))
+            .collect::<Vec<u8>>();
+        scrcpy_ver_vec
     }
 
     /// Get the scrcpy version info.
@@ -721,13 +723,25 @@ pub mod adb_utils {
         port: u16,
         scrcpy_args: Vec<ScrCpyArgs>,
     ) -> io::Result<Child> {
-        let scrcpy_version = get_scrcpy_version()?.version;
-        let scrcpy_version = scrcpy_version.parse::<f32>().unwrap_or(0.0);
+        let scrcpy_verinfo = get_scrcpy_version()?;
+        let ver_vec = process_scrcpy_ver_info(&scrcpy_verinfo);
+        if ver_vec.len() != 2 {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to parse scrcpy version: {}", scrcpy_verinfo.version),
+            ));
+        }
+        if ver_vec[0] != 1 || ver_vec[1] < MIN_SCRCPY_VER {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Unsupported scrcpy version: {}", scrcpy_verinfo.version),
+            ));
+        }
         debug!("Port allocated for scrcpy is: {}", port);
         let port_as_str = port.to_string();
         let scrcpy_args_vec = scrcpy_args
             .iter()
-            .filter(|&s| check_scrcpy_arg_version(s, scrcpy_version))
+            .filter(|&s| check_scrcpy_arg_version(s, ver_vec[1]))
             .map(|s| format!("{}", s))
             .collect::<Vec<String>>();
         let mut scrcpy_args_vec = scrcpy_args_vec.iter().map(|s| s.as_str()).collect();
@@ -767,14 +781,6 @@ pub mod adb_utils {
             }
             #[cfg(not(target_os = "windows"))]
             assert_eq!(ver_info.revision, "33.0.2-8557947");
-        }
-
-        #[test]
-        fn test_check_adb_version() {
-            let ver_info = adb_utils::get_adb_version().unwrap();
-            assert!(adb_utils::check_adb_version(&ver_info, false));
-            let ver_info = adb_utils::get_adb_version().unwrap();
-            assert!(adb_utils::check_adb_version(&ver_info, true));
         }
 
         #[test]
