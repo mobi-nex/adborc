@@ -19,6 +19,9 @@ pub enum Request {
 /// from the local TCPClient.
 #[derive(Serialize, Deserialize)]
 pub enum SysStateRequest {
+    CheckVersion {
+        version: String,
+    },
     GetState,
     GetPeerId,
     SystemCheck,
@@ -114,6 +117,10 @@ pub enum SysStateResponse {
     RequestProcessingError {
         reason: String,
     },
+    ClientOk,
+    ClientError {
+        reason: String,
+    },
 }
 
 impl Display for SysStateResponse {
@@ -178,6 +185,8 @@ impl Display for SysStateResponse {
             SysStateResponse::RequestProcessingError { reason } => {
                 write!(f, "Error processesing request: {}", reason)
             }
+            SysStateResponse::ClientOk => write!(f, "Client OK"),
+            SysStateResponse::ClientError { reason } => write!(f, "{}", reason),
         }
     }
 }

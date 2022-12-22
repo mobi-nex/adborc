@@ -2,7 +2,7 @@ use crate::market::{request::*, DeviceFilter, DeviceFilterVec, SysState};
 use crate::net::TCPClient;
 use crate::util::{
     adb_utils::{self, ScrcpyCliArgs, SCRCPY_SHORTCUT_HELP},
-    SysStateDefaultConfig,
+    SysStateDefaultConfig, ADBORC_VERSION,
 };
 use clap::{Parser, Subcommand};
 use log::error;
@@ -416,6 +416,33 @@ impl Cli {
         }
 
         let client = TCPClient::new("127.0.0.1", SysStateDefaultConfig::BIND_PORT).unwrap();
+
+        // Check if the AdbOrc client is compatible with the listener, before proceeding.
+        // Note: Pre-0.2.0 versions, this check is not performed. This may lead to unhelpful error
+        // message, if the client and server api are not compatible.
+        let request = serde_json::to_string(&Request::System(SysStateRequest::CheckVersion {
+            version: ADBORC_VERSION.to_string(),
+        }))
+        .unwrap();
+        let response = client
+            .send(&request, None)
+            .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
+        let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+        match response {
+            SysStateResponse::ClientOk => {} // Do nothing.
+            SysStateResponse::ClientError { reason } => {
+                println!("{}", reason);
+                return;
+            }
+            // On server version 0.1.0, the server does not support version check.
+            _ => {
+                println!(
+                    "Client version {} is not supported by listener version: 0.1.0",
+                    ADBORC_VERSION
+                );
+                return;
+            }
+        }
 
         match self.command {
             Commands::Status => {

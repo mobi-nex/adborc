@@ -497,6 +497,19 @@ impl System {
             return serde_json::to_string(&SysStateResponse::RequestNotAllowed).unwrap();
         }
         match request {
+            SysStateRequest::CheckVersion { version } => {
+                if version == ADBORC_VERSION {
+                    serde_json::to_string(&SysStateResponse::ClientOk).unwrap()
+                } else {
+                    serde_json::to_string(&SysStateResponse::ClientError {
+                        reason: format!(
+                            "Client version {} is not supported by listener version: {}",
+                            version, ADBORC_VERSION
+                        ),
+                    })
+                    .unwrap()
+                }
+            }
             SysStateRequest::GetState => {
                 let state = SysState::get_min_state();
                 serde_json::to_string(&SysStateResponse::CurrentSysState { state }).unwrap()
