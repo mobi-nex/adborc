@@ -162,7 +162,7 @@ pub struct ScrcpyCliArgs {
     no_display: bool,
 }
 
-pub(crate) fn get_scrcpy_args(args: ScrcpyCliArgs) -> Vec<ScrCpyArgs> {
+pub fn get_scrcpy_args(args: ScrcpyCliArgs) -> Vec<ScrCpyArgs> {
     let mut scrcpy_args = Vec::new();
     if let Some(max_size) = args.max_size {
         scrcpy_args.push(ScrCpyArgs::MaxSize(max_size));

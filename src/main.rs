@@ -1,5 +1,7 @@
-use adborc::cli::Cli;
+mod cli;
+
 use clap::Parser;
+use cli::Cli;
 use env_logger::{Builder, Env};
 use std::io::Write;
 

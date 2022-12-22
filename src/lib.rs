@@ -85,6 +85,4 @@ pub mod market;
 
 pub mod util;
 
-pub mod cli;
-
 mod noise;
