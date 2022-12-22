@@ -18,6 +18,8 @@ pub const MIN_ADB_REV: u8 = 33;
 /// Minimim `scrcpy` version required. Only used for `consumer` mode.
 /// This is required if device screen mirroring and control is required.
 pub const MIN_SCRCPY_VER: u8 = 13;
+/// Current version of `adborc`.
+pub const ADBORC_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Interval used for sending `heartbeat` messages to the marketmaker.
 /// This is used by both `consumer` and `supplier` modes.
@@ -32,8 +34,6 @@ pub(crate) const CONNECTION_TIMEOUT: Duration = Duration::from_secs(3);
 /// Byte representation of the string "0009host:kill".
 pub(crate) const ADB_KILL_SERVER_COMMAND: &[u8; 13] =
     b"\x30\x30\x30\x39\x68\x6f\x73\x74\x3a\x6b\x69\x6c\x6c";
-
-pub(crate) const ADBORC_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Logfile name for logging standard output of the executable.
 pub const STDOUT_LOGFILE: &str = "adborc_stdout.log";

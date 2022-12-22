@@ -1,6 +1,6 @@
-use crate::market::{request::*, DeviceFilter, DeviceFilterVec, SysState};
-use crate::net::TCPClient;
-use crate::util::{
+use adborc::market::{request::*, DeviceFilter, DeviceFilterVec, SysState};
+use adborc::net::TCPClient;
+use adborc::util::{
     adb_utils::{self, ScrcpyCliArgs, SCRCPY_SHORTCUT_HELP},
     SysStateDefaultConfig, ADBORC_VERSION,
 };
