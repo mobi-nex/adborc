@@ -665,6 +665,9 @@ pub enum ConsumerRequest {
         device_id: String,
         scrcpy_args: Vec<ScrCpyArgs>,
     },
+    StopScrCpy {
+        device_id: String,
+    },
     SetScrCpyDefaults {
         scrcpy_args: Vec<ScrCpyArgs>,
     },
@@ -718,6 +721,12 @@ pub enum ConsumerResponse {
         device_id: String,
     },
     StartScrCpyFailure {
+        reason: String,
+    },
+    StopScrCpySuccess {
+        device_id: String,
+    },
+    StopScrCpyFailure {
         reason: String,
     },
     ScrCpyDefaultsSet {
@@ -801,6 +810,16 @@ impl Display for ConsumerResponse {
             }
             ConsumerResponse::StartScrCpyFailure { reason } => {
                 write!(f, "Screen mirroring failed: {}", reason)
+            }
+            ConsumerResponse::StopScrCpySuccess { device_id } => {
+                write!(
+                    f,
+                    "Stopped screen mirroring successfully for device: {}",
+                    device_id
+                )
+            }
+            ConsumerResponse::StopScrCpyFailure { reason } => {
+                write!(f, "Error stopping screen mirroring: {}", reason)
             }
             ConsumerResponse::ScrCpyDefaultsSet { args } => {
                 writeln!(f, "ScrCpy defaults set:").unwrap();

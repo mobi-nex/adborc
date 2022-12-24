@@ -271,6 +271,12 @@ pub enum ConsumerCommands {
         #[clap(flatten)]
         args: ScrcpyCliArgs,
     },
+    /// Stop device screen mirroring for a device.
+    StopScrcpy {
+        /// `device_id` of the device to stop scrcpy for.
+        #[clap(value_parser)]
+        device: String,
+    },
     /// Set the default arguments for `scrcpy`.
     SetScrcpyArgs(ScrcpyCliArgs),
     /// Get the default arguments for `scrcpy` if set using `adborc consumer set-scrcpy-args`.
@@ -846,6 +852,17 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
             let request = serde_json::to_string(&Request::Consumer(ConsumerRequest::StartScrCpy {
                 device_id: device,
                 scrcpy_args,
+            }))
+            .unwrap();
+            let response = client
+                .send(&request, None)
+                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
+            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            println!("{}", response);
+        }
+        ConsumerCommands::StopScrcpy { device } => {
+            let request = serde_json::to_string(&Request::Consumer(ConsumerRequest::StopScrCpy {
+                device_id: device,
             }))
             .unwrap();
             let response = client

@@ -37,26 +37,47 @@ pub(super) struct ConsumerState {
 
 #[derive(Debug, Default)]
 struct ScrCpyState {
-    processes: Vec<Child>,
-    portforwarders: HashMap<String, PortForwarder>,
+    // HashMap of tuple of scrcpy (process, PortForwarders(optional)), hashed by device id.
+    processes: HashMap<String, (Child, Option<PortForwarder>)>,
+    // HashSet of device ids that are currently being mirrored.
+    mirroring: HashSet<String>,
 }
 
 impl ScrCpyState {
+    // Turning off the clippy warning here because we explicitly drop
+    // the lock on the state variable before calling await on the future.
+    #[allow(clippy::await_holding_lock)]
     #[inline(always)]
-    fn add_process(process: Child) {
+    #[tokio::main]
+    async fn add_process(device_id: &str, process: Child, portforwarder: Option<PortForwarder>) {
+        debug!(
+            "Adding scrcpy process {} for device {}",
+            process.id(),
+            device_id
+        );
         let mut state = SCRCPY_STATE.lock().unwrap();
-        state.processes.push(process);
-    }
-
-    #[inline(always)]
-    fn kill_all() {
-        let mut state = SCRCPY_STATE.lock().unwrap();
-        for process in state.processes.iter_mut() {
+        state.mirroring.insert(device_id.to_owned());
+        let init_process = state
+            .processes
+            .insert(device_id.to_owned(), (process, portforwarder));
+        drop(state);
+        if let Some((mut process, portforwarder)) = init_process {
+            debug!(
+                "Stopping existing scrcpy process {} for device {}",
+                process.id(),
+                device_id
+            );
             if let Err(e) = process.kill() {
                 debug!("Failed to kill scrcpy process {}: {}", process.id(), e);
             }
+            if let Some(mut portforwarder) = portforwarder {
+                debug!(
+                    "Stopping existing scrcpy portforwarder for device {}",
+                    device_id
+                );
+                portforwarder.stop().await;
+            }
         }
-        state.processes.clear();
     }
 
     // Turning off the clippy warning here because we explicitly drop
@@ -64,18 +85,24 @@ impl ScrCpyState {
     #[allow(clippy::await_holding_lock)]
     #[inline(always)]
     #[tokio::main]
-    async fn add_portforwarder(device_id: &str, portforwarder: PortForwarder) {
+    async fn kill_process(device_id: &str) {
         let mut state = SCRCPY_STATE.lock().unwrap();
-        let init_forwarder = state
-            .portforwarders
-            .insert(device_id.to_owned(), portforwarder);
+        let scrcpy_process = state.processes.remove(device_id);
+        state.mirroring.remove(device_id);
         drop(state);
-        if let Some(mut portforwarder) = init_forwarder {
+        if let Some((mut process, portforwarder)) = scrcpy_process {
             debug!(
-                "Stopping existing scrcpy portforwarder for device {}",
+                "Stopping scrcpy process {} for device {}",
+                process.id(),
                 device_id
             );
-            portforwarder.stop().await;
+            if let Err(e) = process.kill() {
+                debug!("Failed to kill scrcpy process {}: {}", process.id(), e);
+            }
+            if let Some(mut portforwarder) = portforwarder {
+                debug!("Stopping scrcpy portforwarder for device {}", device_id);
+                portforwarder.stop().await;
+            }
         }
     }
 
@@ -84,32 +111,31 @@ impl ScrCpyState {
     #[allow(clippy::await_holding_lock)]
     #[inline(always)]
     #[tokio::main]
-    async fn remove_portforwarder(device_id: &str) {
+    async fn kill_all() {
         let mut state = SCRCPY_STATE.lock().unwrap();
-        let portforwarder = state.portforwarders.remove(device_id);
-        drop(state);
-        if let Some(mut portforwarder) = portforwarder {
-            debug!("Stopping scrcpy portforwarder for device {}", device_id);
-            portforwarder.stop().await;
-        }
-    }
-
-    // Turning off the clippy warning here because we explicitly drop
-    // the lock on the state variable before calling await on the future.
-    #[allow(clippy::await_holding_lock)]
-    #[inline(always)]
-    #[tokio::main]
-    async fn remove_all_port_forwarders() {
-        let mut state = SCRCPY_STATE.lock().unwrap();
-        let portforwarders = state
-            .portforwarders
+        let scrcpy_processes = state
+            .processes
             .drain()
-            .map(|(_, portforwarder)| portforwarder)
-            .collect::<Vec<PortForwarder>>();
+            .map(|(_, scrcpy_process)| scrcpy_process)
+            .collect::<Vec<(Child, Option<PortForwarder>)>>();
+        state.mirroring.clear();
         drop(state);
-        for mut portforwarder in portforwarders {
-            portforwarder.stop().await;
+        for (mut process, portforwarder) in scrcpy_processes {
+            debug!("Stopping scrcpy process {}", process.id());
+            if let Err(e) = process.kill() {
+                debug!("Failed to kill scrcpy process {}: {}", process.id(), e);
+            }
+            if let Some(mut portforwarder) = portforwarder {
+                debug!("Stopping scrcpy portforwarder");
+                portforwarder.stop().await;
+            }
         }
+    }
+
+    #[inline(always)]
+    fn is_mirroring(device_id: &str) -> bool {
+        let state = SCRCPY_STATE.lock().unwrap();
+        state.mirroring.contains(device_id)
     }
 }
 
@@ -457,7 +483,6 @@ impl Consumer {
     pub(super) fn terminate() {
         ConsumerState::remove_all_port_forwarders();
         ScrCpyState::kill_all();
-        ScrCpyState::remove_all_port_forwarders();
         let mm_addr = ConsumerState::get_addr();
         if let Some(addr) = mm_addr {
             let client = TCPClient::from(addr);
@@ -470,9 +495,7 @@ impl Consumer {
     /// Handle MarketMakerTerminate message.
     /// This message is sent by the Market Maker when it is shutting down.
     pub(super) fn market_maker_terminate() {
-        ConsumerState::remove_all_port_forwarders();
         ScrCpyState::kill_all();
-        ScrCpyState::remove_all_port_forwarders();
         ConsumerState::reset_state();
     }
 
@@ -655,15 +678,18 @@ impl Consumer {
         // If the device requires a secure connection, ask the marketmaker to establish
         // a secure connection from supplier's side.
         // This is not required if the consumer and supplier are the same.
-        if !consumer_same_as_supplier {
+        let portforwarder = if !consumer_same_as_supplier {
             let portforwarder = Consumer::request_scrcpy_tunnel(
                 device_id,
                 &device.available_at,
                 scrcpy_port,
                 secure_comms,
             )?;
-            ScrCpyState::add_portforwarder(device_id, portforwarder);
-        }
+            Some(portforwarder)
+        } else {
+            None
+        };
+
         let mut scrcpy_defaults = ConsumerState::get_scrcpy_args();
         for arg in user_args {
             // Remove the default arg if it is being overridden by the user.
@@ -688,7 +714,7 @@ impl Consumer {
                     ));
                 }
             }
-            ScrCpyState::add_process(child);
+            ScrCpyState::add_process(device_id, child, portforwarder);
         }
 
         Ok(())
@@ -778,6 +804,18 @@ impl Consumer {
                 ))
             }
         }
+    }
+
+    fn stop_scrcpy(device_id: &str) -> io::Result<()> {
+        debug!("Stopping scrcpy for device: {}", device_id);
+        if !ScrCpyState::is_mirroring(device_id) {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Device {} is not being mirrored.", device_id),
+            ));
+        }
+        ScrCpyState::kill_process(device_id);
+        Ok(())
     }
 
     // TODO: Update the MarketMaker with the DeviceSpec for currently reserved devices.
@@ -1005,7 +1043,7 @@ impl Consumer {
                         // Remove the port forwarder for the device.
                         ConsumerState::remove_port_forwarder(&device_id);
                         ConsumerState::remove_device(&device_id);
-                        ScrCpyState::remove_portforwarder(&device_id);
+                        ScrCpyState::kill_process(&device_id);
                         // Return the response.
                         serde_json::to_string(&ConsumerResponse::DeviceReleased { device_id })
                             .unwrap()
@@ -1060,7 +1098,6 @@ impl Consumer {
                         ConsumerState::remove_all_port_forwarders();
                         ConsumerState::remove_all_devices();
                         ScrCpyState::kill_all();
-                        ScrCpyState::remove_all_port_forwarders();
                         // Return the response.
                         serde_json::to_string(&ConsumerResponse::AllDeviceReleaseSuccess).unwrap()
                     }
@@ -1108,6 +1145,24 @@ impl Consumer {
                         .unwrap()
                 }
             }
+            ConsumerRequest::StopScrCpy { device_id } if peer_addr.ip().is_loopback() => {
+                if !ConsumerState::is_device_reserved(&device_id) {
+                    return serde_json::to_string(&ConsumerResponse::StopScrCpyFailure {
+                        reason: "Cannot stop mirroring for a device that is not reserved."
+                            .to_string(),
+                    })
+                    .unwrap();
+                }
+                if let Err(e) = Consumer::stop_scrcpy(&device_id) {
+                    serde_json::to_string(&ConsumerResponse::StopScrCpyFailure {
+                        reason: format!("Could not stop scrcpy: {}", e),
+                    })
+                    .unwrap()
+                } else {
+                    serde_json::to_string(&ConsumerResponse::StopScrCpySuccess { device_id })
+                        .unwrap()
+                }
+            }
 
             ConsumerRequest::SetScrCpyDefaults { scrcpy_args } if peer_addr.ip().is_loopback() => {
                 ConsumerState::set_scrcpy_defaults(scrcpy_args.iter());
@@ -1128,7 +1183,7 @@ impl Consumer {
                     if ConsumerState::is_device_reserved(&device_id_clone) {
                         ConsumerState::remove_device(&device_id_clone);
                         ConsumerState::remove_port_forwarder(&device_id_clone);
-                        ScrCpyState::remove_portforwarder(&device_id_clone);
+                        ScrCpyState::kill_process(&device_id_clone);
                     }
                 });
                 serde_json::to_string(&ConsumerResponse::DeviceReleased { device_id }).unwrap()
