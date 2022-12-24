@@ -47,10 +47,15 @@ impl Display for Response {
 
 #[derive(Debug)]
 pub enum ParseResponseError {
+    /// Failed to parse the string as a valid JSON `Response`.
     BadResponse,
+    /// Failed to parse the Response JSON as a valid `SysStateResponse`.
     BadSystemResponse,
+    /// Failed to parse the Response JSON as a valid `MarketMakerResponse`.
     BadMarketMakerResponse,
+    /// Failed to parse the Response JSON as a valid `SupplierResponse`.
     BadSupplierResponse,
+    /// Failed to parse the Response JSON as a valid `ConsumerResponse`.
     BadConsumerResponse,
 }
 
