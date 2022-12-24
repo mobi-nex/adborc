@@ -181,7 +181,7 @@ lazy_static! {
 }
 
 impl Display for MarketMakerState {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"Current MarketMaker Status:
@@ -198,7 +198,7 @@ impl Display for MarketMakerState {
 }
 
 impl Display for MarketMakerMinState {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"Current MarketMaker Status:
@@ -712,90 +712,90 @@ impl MarketMaker {
         let is_supplier = || MarketMakerState::verify_supplier(&peer_id_str);
         match request {
             // Client requests.
-            MarketMakerRequest::Test => serde_json::to_string(&MarketMakerResponse::Test).unwrap(),
+            MarketMakerRequest::Test => MarketMakerResponse::Test.to_json(),
             MarketMakerRequest::Status if peer_addr.ip().is_loopback() => {
                 let state = MarketMakerState::get_min_state();
-                serde_json::to_string(&MarketMakerResponse::Status { state }).unwrap()
+                MarketMakerResponse::Status { state }.to_json()
             }
             MarketMakerRequest::UseWhitelist if peer_addr.ip().is_loopback() => {
                 MarketMakerState::set_whitelists();
-                serde_json::to_string(&MarketMakerResponse::UseWhitelistSuccess).unwrap()
+                MarketMakerResponse::UseWhitelistSuccess.to_json()
             }
             MarketMakerRequest::ResetWhitelist if peer_addr.ip().is_loopback() => {
                 MarketMakerState::reset_whitelists();
-                serde_json::to_string(&MarketMakerResponse::ResetWhitelistSuccess).unwrap()
+                MarketMakerResponse::ResetWhitelistSuccess.to_json()
             }
             MarketMakerRequest::WhitelistSupplier { key } if peer_addr.ip().is_loopback() => {
                 if base64::decode(key.clone()).is_ok() {
                     MarketMakerState::add_to_supplier_whitelist(&key);
-                    serde_json::to_string(&MarketMakerResponse::WhitelistSupplierSuccess).unwrap()
+                    MarketMakerResponse::WhitelistSupplierSuccess.to_json()
                 } else {
-                    serde_json::to_string(&MarketMakerResponse::WhitelistSupplierFailure {
+                    MarketMakerResponse::WhitelistSupplierFailure {
                         reason: "Error processing key".to_string(),
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 }
             }
             MarketMakerRequest::WhitelistConsumer { key } if peer_addr.ip().is_loopback() => {
                 if base64::decode(key.clone()).is_ok() {
                     MarketMakerState::add_to_consumer_whitelist(&key);
-                    serde_json::to_string(&MarketMakerResponse::WhitelistConsumerSuccess).unwrap()
+                    MarketMakerResponse::WhitelistConsumerSuccess.to_json()
                 } else {
-                    serde_json::to_string(&MarketMakerResponse::WhitelistConsumerFailure {
+                    MarketMakerResponse::WhitelistConsumerFailure {
                         reason: "Error processing key".to_string(),
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 }
             }
             MarketMakerRequest::UnwhitelistSupplier { key } if peer_addr.ip().is_loopback() => {
                 if base64::decode(key.clone()).is_ok() {
                     MarketMakerState::remove_from_supplier_whitelist(&key);
-                    serde_json::to_string(&MarketMakerResponse::UnwhitelistSupplierSuccess).unwrap()
+                    MarketMakerResponse::UnwhitelistSupplierSuccess.to_json()
                 } else {
-                    serde_json::to_string(&MarketMakerResponse::UnwhitelistSupplierFailure {
+                    MarketMakerResponse::UnwhitelistSupplierFailure {
                         reason: "Error processing key".to_string(),
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 }
             }
             MarketMakerRequest::UnwhitelistConsumer { key } if peer_addr.ip().is_loopback() => {
                 if base64::decode(key.clone()).is_ok() {
                     MarketMakerState::remove_from_consumer_whitelist(&key);
-                    serde_json::to_string(&MarketMakerResponse::UnwhitelistConsumerSuccess).unwrap()
+                    MarketMakerResponse::UnwhitelistConsumerSuccess.to_json()
                 } else {
-                    serde_json::to_string(&MarketMakerResponse::UnwhitelistConsumerFailure {
+                    MarketMakerResponse::UnwhitelistConsumerFailure {
                         reason: "Error processing key".to_string(),
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 }
             }
 
             // Supplier Requests.
             MarketMakerRequest::SupplierConnect { mut supplier } => {
                 if !MarketMakerState::verify_supplier_whitelist(&peer_id_str) {
-                    return serde_json::to_string(&MarketMakerResponse::SupplierNotConnected {
+                    return MarketMakerResponse::SupplierNotConnected {
                         reason: "Not in whitelist".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let pub_key = supplier.pub_key.clone();
                 if peer_id_str != pub_key {
-                    return serde_json::to_string(&MarketMakerResponse::SupplierNotConnected {
+                    return MarketMakerResponse::SupplierNotConnected {
                         reason: "Public key does not match peer id".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 if MarketMakerState::supplier_exists(&pub_key) {
-                    return serde_json::to_string(&MarketMakerResponse::SupplierNotConnected {
+                    return MarketMakerResponse::SupplierNotConnected {
                         reason: "Already connected".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 if !MarketMakerState::supplier_supported(&supplier.adborc_version) {
-                    return serde_json::to_string(&MarketMakerResponse::SupplierNotConnected {
+                    return MarketMakerResponse::SupplierNotConnected {
                         reason: "Unsupported Supplier version".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 if supplier.name.is_empty() {
                     supplier.name = peer_addr_ip.clone();
@@ -803,17 +803,17 @@ impl MarketMaker {
                 supplier.bind_host = peer_addr_ip;
                 let client = TCPClient::new(&supplier.bind_host, supplier.bind_port);
                 if client.is_err() {
-                    return serde_json::to_string(&MarketMakerResponse::SupplierNotConnected {
+                    return MarketMakerResponse::SupplierNotConnected {
                         reason: "Could not connect to supplier.".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let client = client.unwrap();
                 if client.test_connect().is_err() {
-                    return serde_json::to_string(&MarketMakerResponse::SupplierNotConnected {
+                    return MarketMakerResponse::SupplierNotConnected {
                         reason: "Could not connect to supplier".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let supplier_clone = supplier.clone();
                 // Update the supplier HeartBeatState in a separate thread.
@@ -821,11 +821,11 @@ impl MarketMaker {
                     HeartBeatState::add_supplier(&peer_id_str);
                 });
                 MarketMakerState::insert_supplier(supplier_clone);
-                serde_json::to_string(&MarketMakerResponse::SupplierConnected {
+                MarketMakerResponse::SupplierConnected {
                     supplier,
                     pub_key: base64::encode(SystemKeypair::get_public_key().unwrap()),
-                })
-                .unwrap()
+                }
+                .to_json()
             }
 
             MarketMakerRequest::SupplyDevices { devices } if is_supplier() => {
@@ -845,37 +845,37 @@ impl MarketMaker {
                 thread::spawn(|| {
                     MarketMakerState::update_available_devices();
                 });
-                serde_json::to_string(&MarketMakerResponse::DevicesSupplied {
+                MarketMakerResponse::DevicesSupplied {
                     supplied_devices,
                     failed_devices,
-                })
-                .unwrap()
+                }
+                .to_json()
             }
 
             MarketMakerRequest::ReclaimDevice { device_id, force } if is_supplier() => {
                 // Check if the device exists.
                 let device = MarketMakerState::get_device(&device_id);
                 if device.is_none() {
-                    return serde_json::to_string(&MarketMakerResponse::DeviceNotReclaimed {
+                    return MarketMakerResponse::DeviceNotReclaimed {
                         reason: "Device not found".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let device = device.unwrap();
                 let device_available = device.used_by_host.is_empty();
                 if !force && !device_available {
                     // Device is being used by a consumer and force is not set.
-                    return serde_json::to_string(&MarketMakerResponse::DeviceNotReclaimed {
+                    return MarketMakerResponse::DeviceNotReclaimed {
                         reason: "Device is being used by a consumer".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 // Check if the device is supplied by the supplier.
                 if device.available_at_host != peer_addr_ip {
-                    return serde_json::to_string(&MarketMakerResponse::DeviceNotReclaimed {
+                    return MarketMakerResponse::DeviceNotReclaimed {
                         reason: "Device not supplied by supplier".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
 
                 // Can reclaim the device.
@@ -896,7 +896,7 @@ impl MarketMaker {
                 MarketMakerState::remove_device(&device_id);
                 MarketMakerState::update_available_devices();
 
-                serde_json::to_string(&MarketMakerResponse::DeviceReclaimed { device_id }).unwrap()
+                MarketMakerResponse::DeviceReclaimed { device_id }.to_json()
             }
 
             MarketMakerRequest::SupplierDisconnect if is_supplier() => {
@@ -924,7 +924,7 @@ impl MarketMaker {
                     }
                     MarketMakerState::update_available_devices();
                 });
-                serde_json::to_string(&MarketMakerResponse::SupplierDisconnected).unwrap()
+                MarketMakerResponse::SupplierDisconnected.to_json()
             }
 
             MarketMakerRequest::SupplierHeartBeat if is_supplier() => {
@@ -939,35 +939,35 @@ impl MarketMaker {
                         MarketMaker::handle_supplier_ip_change(peer_id_str, peer_addr_ip)
                     });
                 }
-                serde_json::to_string(&MarketMakerResponse::HeartBeatResponse).unwrap()
+                MarketMakerResponse::HeartBeatResponse.to_json()
             }
 
             // Consumer Requests.
             MarketMakerRequest::ConsumerConnect { mut consumer } => {
                 if !MarketMakerState::verify_consumer_whitelist(&peer_id_str) {
-                    return serde_json::to_string(&MarketMakerResponse::ConsumerNotConnected {
+                    return MarketMakerResponse::ConsumerNotConnected {
                         reason: "Not in whitelist".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 if MarketMakerState::consumer_exists(&peer_id_str) {
-                    return serde_json::to_string(&MarketMakerResponse::ConsumerNotConnected {
+                    return MarketMakerResponse::ConsumerNotConnected {
                         reason: "Already connected".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let pub_key = consumer.pub_key.clone();
                 if pub_key != peer_id_str {
-                    return serde_json::to_string(&MarketMakerResponse::ConsumerNotConnected {
+                    return MarketMakerResponse::ConsumerNotConnected {
                         reason: "Public key does not match peer id".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 if !MarketMakerState::consumer_supported(&consumer.adborc_version) {
-                    return serde_json::to_string(&MarketMakerResponse::ConsumerNotConnected {
+                    return MarketMakerResponse::ConsumerNotConnected {
                         reason: "Unsupported Consumer version".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 if consumer.name.is_empty() {
                     consumer.name = peer_addr_ip.clone();
@@ -975,17 +975,17 @@ impl MarketMaker {
                 consumer.bind_host = peer_addr_ip;
                 let client = TCPClient::new(&consumer.bind_host, consumer.bind_port);
                 if client.is_err() {
-                    return serde_json::to_string(&MarketMakerResponse::ConsumerNotConnected {
+                    return MarketMakerResponse::ConsumerNotConnected {
                         reason: "Could not connect to consumer.".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let client = client.unwrap();
                 if client.test_connect().is_err() {
-                    return serde_json::to_string(&MarketMakerResponse::ConsumerNotConnected {
+                    return MarketMakerResponse::ConsumerNotConnected {
                         reason: "Could not connect to consumer.".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let consumer_clone = consumer.clone();
                 // Update the consumer HeartBeatState in a separate thread.
@@ -993,41 +993,41 @@ impl MarketMaker {
                     HeartBeatState::add_consumer(&peer_id_str);
                 });
                 MarketMakerState::insert_consumer(consumer_clone);
-                serde_json::to_string(&MarketMakerResponse::ConsumerConnected {
+                MarketMakerResponse::ConsumerConnected {
                     consumer,
                     pub_key: base64::encode(SystemKeypair::get_public_key().unwrap()),
-                })
-                .unwrap()
+                }
+                .to_json()
             }
 
             MarketMakerRequest::GetAvailableDevices if is_consumer() => {
                 let devices = MarketMakerState::get_available_devices();
-                serde_json::to_string(&MarketMakerResponse::AvailableDevices { devices }).unwrap()
+                MarketMakerResponse::AvailableDevices { devices }.to_json()
             }
 
             MarketMakerRequest::GetDevicesByFilter { filter_vec } if is_consumer() => {
                 let devices = MarketMakerState::filter_devices(&filter_vec);
-                serde_json::to_string(&MarketMakerResponse::DevicesByFilter {
+                MarketMakerResponse::DevicesByFilter {
                     devices,
                     filter_vec,
-                })
-                .unwrap()
+                }
+                .to_json()
             }
 
             MarketMakerRequest::ReserveDevice { device_id } if is_consumer() => {
                 let device = MarketMakerState::remove_device_from_available(&device_id);
                 if device.is_none() {
-                    return serde_json::to_string(&MarketMakerResponse::DeviceNotReserved {
+                    return MarketMakerResponse::DeviceNotReserved {
                         reason: "Device not available".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let consumer_name = MarketMakerState::get_consumer_name(&peer_id_str);
                 if consumer_name.is_none() {
-                    return serde_json::to_string(&MarketMakerResponse::DeviceNotReserved {
+                    return MarketMakerResponse::DeviceNotReserved {
                         reason: "Fatal: Consumer not found".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let mut device = device.unwrap();
                 device.used_by = peer_id_str.clone();
@@ -1041,19 +1041,19 @@ impl MarketMaker {
                     thread::spawn(|| {
                         MarketMakerState::insert_device(device_clone);
                     });
-                    serde_json::to_string(&MarketMakerResponse::DeviceReserved {
+                    MarketMakerResponse::DeviceReserved {
                         device,
                         peer_id: None,
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 } else {
                     let supplier_id = device.available_at.clone();
                     let supplier = MarketMakerState::get_supplier(&supplier_id);
                     if supplier.is_none() {
-                        return serde_json::to_string(&MarketMakerResponse::DeviceNotReserved {
+                        return MarketMakerResponse::DeviceNotReserved {
                             reason: "Supplier not found".to_string(),
-                        })
-                        .unwrap();
+                        }
+                        .to_json();
                     }
                     let supplier = supplier.unwrap();
                     let host = supplier.bind_host.as_str();
@@ -1066,22 +1066,18 @@ impl MarketMaker {
                         });
                         let response = client.send_request(&request, None);
                         if response.is_err() {
-                            return serde_json::to_string(
-                                &MarketMakerResponse::DeviceNotReserved {
-                                    reason: "Could not connect to supplier".to_string(),
-                                },
-                            )
-                            .unwrap();
+                            return MarketMakerResponse::DeviceNotReserved {
+                                reason: "Could not connect to supplier".to_string(),
+                            }
+                            .to_json();
                         }
                         let response = response.unwrap();
-                        let response = serde_json::from_str::<SupplierResponse>(&response);
+                        let response = SupplierResponse::from_str(&response);
                         if response.is_err() {
-                            return serde_json::to_string(
-                                &MarketMakerResponse::DeviceNotReserved {
-                                    reason: "Failed to parse server response".to_string(),
-                                },
-                            )
-                            .unwrap();
+                            return MarketMakerResponse::DeviceNotReserved {
+                                reason: "Failed to parse server response".to_string(),
+                            }
+                            .to_json();
                         }
                         let response = response.unwrap();
                         match response {
@@ -1091,28 +1087,25 @@ impl MarketMaker {
                                     MarketMakerState::insert_device(device_clone);
                                 });
                                 device.available_at_port = port;
-                                serde_json::to_string(&MarketMakerResponse::DeviceReserved {
+                                MarketMakerResponse::DeviceReserved {
                                     device,
                                     peer_id: Some(supplier_id),
-                                })
-                                .unwrap()
+                                }
+                                .to_json()
                             }
                             SupplierResponse::SecureTunnelStartFailure { reason } => {
-                                serde_json::to_string(&MarketMakerResponse::DeviceNotReserved {
-                                    reason,
-                                })
-                                .unwrap()
+                                MarketMakerResponse::DeviceNotReserved { reason }.to_json()
                             }
-                            _ => serde_json::to_string(&MarketMakerResponse::DeviceNotReserved {
+                            _ => MarketMakerResponse::DeviceNotReserved {
                                 reason: "Unexpected response from supplier".to_string(),
-                            })
-                            .unwrap(),
+                            }
+                            .to_json(),
                         }
                     } else {
-                        serde_json::to_string(&MarketMakerResponse::DeviceNotReserved {
+                        MarketMakerResponse::DeviceNotReserved {
                             reason: "Could not connect to supplier".to_string(),
-                        })
-                        .unwrap()
+                        }
+                        .to_json()
                     }
                 }
             }
@@ -1123,13 +1116,13 @@ impl MarketMaker {
                         MarketMaker::release_device(&device_id);
                         MarketMakerState::update_available_devices();
                     });
-                    serde_json::to_string(&MarketMakerResponse::DeviceReleased).unwrap()
+                    MarketMakerResponse::DeviceReleased.to_json()
                 } else {
-                    serde_json::to_string(&MarketMakerResponse::DeviceNotReleased {
+                    MarketMakerResponse::DeviceNotReleased {
                         reason: "Device is not used by the specified consumer. Access restricted."
                             .to_string(),
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 }
             }
 
@@ -1138,7 +1131,7 @@ impl MarketMaker {
                     MarketMakerState::reclaim_devices_used_by(&peer_id_str);
                     MarketMakerState::update_available_devices();
                 });
-                serde_json::to_string(&MarketMakerResponse::AllDeviceReleaseSuccess).unwrap()
+                MarketMakerResponse::AllDeviceReleaseSuccess.to_json()
             }
 
             MarketMakerRequest::StartScrcpyTunnel {
@@ -1150,10 +1143,10 @@ impl MarketMaker {
                 if MarketMakerState::is_device_used_by(&device_id, &peer_id_str) {
                     let supplier = MarketMakerState::get_supplier(&supplier_id);
                     if supplier.is_none() {
-                        return serde_json::to_string(&MarketMakerResponse::ScrcpyTunnelFailure {
+                        return MarketMakerResponse::ScrcpyTunnelFailure {
                             reason: "Supplier not found".to_string(),
-                        })
-                        .unwrap();
+                        }
+                        .to_json();
                     }
                     let consumer_host = peer_addr_ip;
 
@@ -1170,52 +1163,44 @@ impl MarketMaker {
                         });
                         let response = client.send_request(&request, None);
                         if response.is_err() {
-                            return serde_json::to_string(
-                                &MarketMakerResponse::ScrcpyTunnelFailure {
-                                    reason: "Could not connect to supplier".to_string(),
-                                },
-                            )
-                            .unwrap();
+                            return MarketMakerResponse::ScrcpyTunnelFailure {
+                                reason: "Could not connect to supplier".to_string(),
+                            }
+                            .to_json();
                         }
                         let response = response.unwrap();
-                        let response = serde_json::from_str::<SupplierResponse>(&response);
+                        let response = SupplierResponse::from_str(&response);
                         if response.is_err() {
-                            return serde_json::to_string(
-                                &MarketMakerResponse::ScrcpyTunnelFailure {
-                                    reason: "Failed to parse server response".to_string(),
-                                },
-                            )
-                            .unwrap();
+                            return MarketMakerResponse::ScrcpyTunnelFailure {
+                                reason: "Failed to parse server response".to_string(),
+                            }
+                            .to_json();
                         }
                         let response = response.unwrap();
                         match response {
                             SupplierResponse::ScrcpyTunnelSuccess => {
-                                serde_json::to_string(&MarketMakerResponse::ScrcpyTunnelSuccess)
-                                    .unwrap()
+                                MarketMakerResponse::ScrcpyTunnelSuccess.to_json()
                             }
                             SupplierResponse::ScrcpyTunnelFailure { reason } => {
-                                serde_json::to_string(&MarketMakerResponse::ScrcpyTunnelFailure {
-                                    reason,
-                                })
-                                .unwrap()
+                                MarketMakerResponse::ScrcpyTunnelFailure { reason }.to_json()
                             }
-                            _ => serde_json::to_string(&MarketMakerResponse::ScrcpyTunnelFailure {
+                            _ => MarketMakerResponse::ScrcpyTunnelFailure {
                                 reason: "Unexpected response from supplier".to_string(),
-                            })
-                            .unwrap(),
+                            }
+                            .to_json(),
                         }
                     } else {
-                        serde_json::to_string(&MarketMakerResponse::ScrcpyTunnelFailure {
+                        MarketMakerResponse::ScrcpyTunnelFailure {
                             reason: "Could not connect to supplier to start scrcpy tunnel"
                                 .to_string(),
-                        })
-                        .unwrap()
+                        }
+                        .to_json()
                     }
                 } else {
-                    serde_json::to_string(&MarketMakerResponse::ScrcpyTunnelFailure {
+                    MarketMakerResponse::ScrcpyTunnelFailure {
                         reason: "Unauthorised access to device".to_string(),
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 }
             }
 
@@ -1228,17 +1213,17 @@ impl MarketMaker {
                     MarketMakerState::update_available_devices();
                     HeartBeatState::remove_consumer(&peer_id_str);
                 });
-                serde_json::to_string(&MarketMakerResponse::ConsumerDisconnected).unwrap()
+                MarketMakerResponse::ConsumerDisconnected.to_json()
             }
 
             MarketMakerRequest::ConsumerHeartBeat if is_consumer() => {
                 debug!("Received heartbeat from consumer {}", peer_id_str);
                 HeartBeatState::consumer_heartbeat(&peer_id_str);
-                serde_json::to_string(&MarketMakerResponse::HeartBeatResponse).unwrap()
+                MarketMakerResponse::HeartBeatResponse.to_json()
             }
 
             // Requests that are not allowed.
-            _ => serde_json::to_string(&MarketMakerResponse::RequestNotAllowed).unwrap(),
+            _ => MarketMakerResponse::RequestNotAllowed.to_json(),
         }
     }
 }

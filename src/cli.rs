@@ -6,9 +6,11 @@ use adborc::util::{
 };
 use clap::{Parser, Subcommand};
 use log::error;
+use serde::Serialize;
 use std::collections::HashSet;
 use std::io::{self, Error};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+use std::str::FromStr;
 
 #[derive(Parser)]
 #[clap(name="adborc", author, version, about, long_about = None)]
@@ -302,29 +304,33 @@ enum ResponseType {
 
 fn map_processing_error(error: Error, res_type: ResponseType) -> String {
     match res_type {
-        ResponseType::System => serde_json::to_string(&SysStateResponse::RequestProcessingError {
+        ResponseType::System => SysStateResponse::RequestProcessingError {
             reason: format!("{}", error),
-        })
-        .unwrap(),
-        ResponseType::MarketMaker => {
-            serde_json::to_string(&MarketMakerResponse::RequestProcessingError {
-                reason: format!("{}", error),
-            })
-            .unwrap()
         }
-        ResponseType::Supplier => {
-            serde_json::to_string(&SupplierResponse::RequestProcessingError {
-                reason: format!("{}", error),
-            })
-            .unwrap()
+        .to_json(),
+        ResponseType::MarketMaker => MarketMakerResponse::RequestProcessingError {
+            reason: format!("{}", error),
         }
-        ResponseType::Consumer => {
-            serde_json::to_string(&ConsumerResponse::RequestProcessingError {
-                reason: format!("{}", error),
-            })
-            .unwrap()
+        .to_json(),
+        ResponseType::Supplier => SupplierResponse::RequestProcessingError {
+            reason: format!("{}", error),
         }
+        .to_json(),
+        ResponseType::Consumer => ConsumerResponse::RequestProcessingError {
+            reason: format!("{}", error),
+        }
+        .to_json(),
     }
+}
+
+fn send_request<T>(spec_request: T, res_type: ResponseType, client: &TCPClient) -> String
+where
+    T: GetRequest + Serialize,
+{
+    let request = spec_request.get_request();
+    client
+        .send_request(&request, None)
+        .unwrap_or_else(|e| map_processing_error(e, res_type))
 }
 
 impl Cli {
@@ -420,14 +426,14 @@ impl Cli {
         // Check if the AdbOrc client is compatible with the listener, before proceeding.
         // Note: Pre-0.2.0 versions, this check is not performed. This may lead to unhelpful error
         // message, if the client and server api are not compatible.
-        let request = serde_json::to_string(&Request::System(SysStateRequest::CheckVersion {
-            version: ADBORC_VERSION.to_string(),
-        }))
-        .unwrap();
-        let response = client
-            .send(&request, None)
-            .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-        let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+        let response = send_request(
+            SysStateRequest::CheckVersion {
+                version: ADBORC_VERSION.to_string(),
+            },
+            ResponseType::System,
+            &client,
+        );
+        let response = SysStateResponse::from_str(&response).unwrap();
         match response {
             SysStateResponse::ClientOk => {} // Do nothing.
             SysStateResponse::ClientError { reason } => {
@@ -451,61 +457,42 @@ impl Cli {
 fn process_command(command: Commands, client: TCPClient) {
     match command {
         Commands::Status => {
-            let request =
-                serde_json::to_string(&Request::System(SysStateRequest::GetState)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response = send_request(SysStateRequest::GetState, ResponseType::System, &client);
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::Shutdown => {
-            let request =
-                serde_json::to_string(&Request::System(SysStateRequest::Shutdown)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response = send_request(SysStateRequest::Shutdown, ResponseType::System, &client);
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::GetNetworkId => {
-            let request =
-                serde_json::to_string(&Request::System(SysStateRequest::GetPeerId)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response = send_request(SysStateRequest::GetPeerId, ResponseType::System, &client);
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::Check => {
-            let request =
-                serde_json::to_string(&Request::System(SysStateRequest::SystemCheck)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response =
+                send_request(SysStateRequest::SystemCheck, ResponseType::System, &client);
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::SetAdbPath { path } => {
-            let request = serde_json::to_string(&Request::System(SysStateRequest::SetAdbPath {
-                adb_path: path,
-            }))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response = send_request(
+                SysStateRequest::SetAdbPath { adb_path: path },
+                ResponseType::System,
+                &client,
+            );
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::SetScrcpyPath { path } => {
-            let request = serde_json::to_string(&Request::System(SysStateRequest::SetScrcpyPath {
-                scrcpy_path: path,
-            }))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response = send_request(
+                SysStateRequest::SetScrcpyPath { scrcpy_path: path },
+                ResponseType::System,
+                &client,
+            );
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::Marketmaker(cmd) => process_market_maker_command(cmd, client),
@@ -520,94 +507,84 @@ fn process_command(command: Commands, client: TCPClient) {
 fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient) {
     match command {
         MarketMakerCommands::Status => {
-            let request =
-                serde_json::to_string(&Request::MarketMaker(MarketMakerRequest::Status)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
-            let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+            let response = send_request(
+                MarketMakerRequest::Status,
+                ResponseType::MarketMaker,
+                &client,
+            );
+            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::Start => {
-            let request =
-                serde_json::to_string(&Request::System(SysStateRequest::StartMarketMaker)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response = send_request(
+                SysStateRequest::StartMarketMaker,
+                ResponseType::System,
+                &client,
+            );
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::Stop => {
-            let request =
-                serde_json::to_string(&Request::System(SysStateRequest::StopMarketMaker)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response = send_request(
+                SysStateRequest::StopMarketMaker,
+                ResponseType::System,
+                &client,
+            );
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::UseWhitelist => {
-            let request =
-                serde_json::to_string(&Request::MarketMaker(MarketMakerRequest::UseWhitelist))
-                    .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
-            let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+            let response = send_request(
+                MarketMakerRequest::UseWhitelist,
+                ResponseType::MarketMaker,
+                &client,
+            );
+            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::ResetWhitelist => {
-            let request =
-                serde_json::to_string(&Request::MarketMaker(MarketMakerRequest::ResetWhitelist))
-                    .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
-            let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+            let response = send_request(
+                MarketMakerRequest::ResetWhitelist,
+                ResponseType::MarketMaker,
+                &client,
+            );
+            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::AddSupplier { peer_id } => {
-            let request = serde_json::to_string(&Request::MarketMaker(
+            let response = send_request(
                 MarketMakerRequest::WhitelistSupplier { key: peer_id },
-            ))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
-            let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+                ResponseType::MarketMaker,
+                &client,
+            );
+            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::RemoveSupplier { peer_id } => {
-            let request = serde_json::to_string(&Request::MarketMaker(
+            let response = send_request(
                 MarketMakerRequest::UnwhitelistSupplier { key: peer_id },
-            ))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
-            let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+                ResponseType::MarketMaker,
+                &client,
+            );
+            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::AddConsumer { peer_id } => {
-            let request = serde_json::to_string(&Request::MarketMaker(
+            let response = send_request(
                 MarketMakerRequest::WhitelistConsumer { key: peer_id },
-            ))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
-            let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+                ResponseType::MarketMaker,
+                &client,
+            );
+            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::RemoveConsumer { peer_id } => {
-            let request = serde_json::to_string(&Request::MarketMaker(
+            let response = send_request(
                 MarketMakerRequest::UnwhitelistConsumer { key: peer_id },
-            ))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::MarketMaker));
-            let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+                ResponseType::MarketMaker,
+                &client,
+            );
+            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
     }
@@ -616,12 +593,8 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
 fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
     match command {
         SupplierCommands::Status => {
-            let request =
-                serde_json::to_string(&Request::Supplier(SupplierRequest::Status)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Supplier));
-            let response = serde_json::from_str::<SupplierResponse>(&response).unwrap();
+            let response = send_request(SupplierRequest::Status, ResponseType::Supplier, &client);
+            let response = SupplierResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         SupplierCommands::Start {
@@ -630,51 +603,44 @@ fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
             user,
             secure,
         } => {
-            let request = serde_json::to_string(&Request::System(SysStateRequest::StartSupplier {
-                mm_host: remote,
-                mm_port: port,
-                name: user,
-                secure_comms: secure,
-            }))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response = send_request(
+                SysStateRequest::StartSupplier {
+                    mm_host: remote,
+                    mm_port: port,
+                    name: user,
+                    secure_comms: secure,
+                },
+                ResponseType::System,
+                &client,
+            );
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         SupplierCommands::Stop => {
-            let request =
-                serde_json::to_string(&Request::System(SysStateRequest::StopSupplier)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response =
+                send_request(SysStateRequest::StopSupplier, ResponseType::System, &client);
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         SupplierCommands::Supply { devices } => {
-            let request =
-                serde_json::to_string(&Request::Supplier(SupplierRequest::SupplyDevices {
-                    devices,
-                }))
-                .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Supplier));
-            let response = serde_json::from_str::<SupplierResponse>(&response).unwrap();
+            let response = send_request(
+                SupplierRequest::SupplyDevices { devices },
+                ResponseType::Supplier,
+                &client,
+            );
+            let response = SupplierResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         SupplierCommands::Reclaim { device, force } => {
-            let request =
-                serde_json::to_string(&Request::Supplier(SupplierRequest::ReclaimDevice {
+            let response = send_request(
+                SupplierRequest::ReclaimDevice {
                     device_id: device,
                     force,
-                }))
-                .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Supplier));
-            let response = serde_json::from_str::<SupplierResponse>(&response).unwrap();
+                },
+                ResponseType::Supplier,
+                &client,
+            );
+            let response = SupplierResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
     }
@@ -683,73 +649,67 @@ fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
 fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
     match command {
         ConsumerCommands::Status => {
-            let request =
-                serde_json::to_string(&Request::Consumer(ConsumerRequest::Status)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            let response = send_request(ConsumerRequest::Status, ResponseType::Consumer, &client);
+            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::Start { remote, port, user } => {
-            let request = serde_json::to_string(&Request::System(SysStateRequest::StartConsumer {
-                mm_host: remote,
-                mm_port: port,
-                name: user,
-            }))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response = send_request(
+                SysStateRequest::StartConsumer {
+                    mm_host: remote,
+                    mm_port: port,
+                    name: user,
+                },
+                ResponseType::System,
+                &client,
+            );
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::Stop => {
-            let request =
-                serde_json::to_string(&Request::System(SysStateRequest::StopConsumer)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::System));
-            let response = serde_json::from_str::<SysStateResponse>(&response).unwrap();
+            let response =
+                send_request(SysStateRequest::StopConsumer, ResponseType::System, &client);
+            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::Reserve { device, no_default } => {
-            let request =
-                serde_json::to_string(&Request::Consumer(ConsumerRequest::ReserveDevice {
+            let response = send_request(
+                ConsumerRequest::ReserveDevice {
                     device_id: device,
                     no_use: no_default,
-                }))
-                .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+                },
+                ResponseType::Consumer,
+                &client,
+            );
+            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::Release { device } => {
-            let request = if device.is_some() {
-                serde_json::to_string(&Request::Consumer(ConsumerRequest::ReleaseDevice {
-                    device_id: device.as_ref().unwrap().to_string(),
-                }))
-                .unwrap()
+            let response = if device.is_some() {
+                send_request(
+                    ConsumerRequest::ReleaseDevice {
+                        device_id: device.as_ref().unwrap().to_string(),
+                    },
+                    ResponseType::Consumer,
+                    &client,
+                )
             } else {
-                serde_json::to_string(&Request::Consumer(ConsumerRequest::ReleaseAllDevices))
-                    .unwrap()
+                send_request(
+                    ConsumerRequest::ReleaseAllDevices,
+                    ResponseType::Consumer,
+                    &client,
+                )
             };
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::ListAvailable => {
-            let request =
-                serde_json::to_string(&Request::Consumer(ConsumerRequest::GetAvailableDevices))
-                    .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            let response = send_request(
+                ConsumerRequest::GetAvailableDevices,
+                ResponseType::Consumer,
+                &client,
+            );
+            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::GetDevices {
@@ -787,24 +747,17 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 filters.push(DeviceFilter::ConsumerNames(reserved_by));
             }
             let filter_vec = DeviceFilterVec { filters };
-            let request =
-                serde_json::to_string(&Request::Consumer(ConsumerRequest::GetDevicesByFilter {
-                    filter_vec,
-                }))
-                .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            let response = send_request(
+                ConsumerRequest::GetDevicesByFilter { filter_vec },
+                ResponseType::Consumer,
+                &client,
+            );
+            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::ListReserved => {
-            let request =
-                serde_json::to_string(&Request::Consumer(ConsumerRequest::Status)).unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            let response = send_request(ConsumerRequest::Status, ResponseType::Consumer, &client);
+            let response = ConsumerResponse::from_str(&response).unwrap();
             match response {
                 ConsumerResponse::Status { state } => {
                     let reserved_devices = state.devices;
@@ -831,50 +784,44 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
             }
         }
         ConsumerCommands::SetDefault { device } => {
-            let request = serde_json::to_string(&Request::Consumer(ConsumerRequest::UseDevice {
-                device_id: device,
-            }))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            let response = send_request(
+                ConsumerRequest::UseDevice { device_id: device },
+                ResponseType::Consumer,
+                &client,
+            );
+            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::Scrcpy { device, args } => {
             let scrcpy_args = adb_utils::get_scrcpy_args(args);
-            let request = serde_json::to_string(&Request::Consumer(ConsumerRequest::StartScrCpy {
-                device_id: device,
-                scrcpy_args,
-            }))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            let response = send_request(
+                ConsumerRequest::StartScrCpy {
+                    device_id: device,
+                    scrcpy_args,
+                },
+                ResponseType::Consumer,
+                &client,
+            );
+            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::SetScrcpyArgs(args) => {
             let scrcpy_args = adb_utils::get_scrcpy_args(args);
-            let request =
-                serde_json::to_string(&Request::Consumer(ConsumerRequest::SetScrCpyDefaults {
-                    scrcpy_args,
-                }))
-                .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            let response = send_request(
+                ConsumerRequest::SetScrCpyDefaults { scrcpy_args },
+                ResponseType::Consumer,
+                &client,
+            );
+            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::GetScrcpyArgs => {
-            let request =
-                serde_json::to_string(&Request::Consumer(ConsumerRequest::GetScrCpyDefaults))
-                    .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            let response = send_request(
+                ConsumerRequest::GetScrCpyDefaults,
+                ResponseType::Consumer,
+                &client,
+            );
+            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::ScrcpyShortcuts => {

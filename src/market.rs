@@ -19,10 +19,11 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use snow::Keypair;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter, Result, Write};
+use std::fmt::{self, Display, Formatter, Write};
 use std::io::{self, Error, ErrorKind};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -94,7 +95,7 @@ pub struct SysStateMin {
 }
 
 impl Display for SysStateMin {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"System status:
@@ -448,10 +449,9 @@ impl System {
             base64::encode(peer_id.as_ref())
         );
 
-        let request = serde_json::from_str::<Request>(&command);
+        let request = Request::from_str(&command);
         if request.is_err() {
-            return serde_json::to_string(&SysStateResponse::InvalidRequest { request: command })
-                .unwrap();
+            return SysStateResponse::InvalidRequest { request: command }.to_json();
         }
 
         let request = request.unwrap();
@@ -469,13 +469,13 @@ impl System {
                 if is_supplier_mm() =>
             {
                 thread::spawn(|| System::stop_supplier(true));
-                serde_json::to_string(&SysStateResponse::TerminationAcknowledged).unwrap()
+                SysStateResponse::TerminationAcknowledged.to_json()
             }
             Request::System(SysStateRequest::ConsumerMarketMakerTerminating)
                 if is_consumer_mm() =>
             {
                 thread::spawn(|| System::stop_consumer(true));
-                serde_json::to_string(&SysStateResponse::TerminationAcknowledged).unwrap()
+                SysStateResponse::TerminationAcknowledged.to_json()
             }
             Request::System(request) => System::process_request(request, peer_addr),
             Request::MarketMaker(request) if SysState::market_maker_is_some() => {
@@ -487,72 +487,72 @@ impl System {
             Request::Consumer(request) if SysState::consumer_is_some() => {
                 Consumer::process_request(request, peer_addr, peer_id)
             }
-            _ => serde_json::to_string(&SysStateResponse::RequestNotAllowed).unwrap(),
+            _ => SysStateResponse::RequestNotAllowed.to_json(),
         }
     }
 
     fn process_request(request: SysStateRequest, peer_addr: SocketAddr) -> String {
         // Only requests from localhost client are allowed.
         if !(peer_addr.ip().is_loopback()) {
-            return serde_json::to_string(&SysStateResponse::RequestNotAllowed).unwrap();
+            return SysStateResponse::RequestNotAllowed.to_json();
         }
         match request {
             SysStateRequest::CheckVersion { version } => {
                 if version == ADBORC_VERSION {
-                    serde_json::to_string(&SysStateResponse::ClientOk).unwrap()
+                    SysStateResponse::ClientOk.to_json()
                 } else {
-                    serde_json::to_string(&SysStateResponse::ClientError {
+                    SysStateResponse::ClientError {
                         reason: format!(
                             "Client version {} is not supported by listener version: {}",
                             version, ADBORC_VERSION
                         ),
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 }
             }
             SysStateRequest::GetState => {
                 let state = SysState::get_min_state();
-                serde_json::to_string(&SysStateResponse::CurrentSysState { state }).unwrap()
+                SysStateResponse::CurrentSysState { state }.to_json()
             }
             SysStateRequest::GetPeerId => {
                 let pub_key = SystemKeypair::get_public_key();
                 if pub_key.is_none() {
-                    return serde_json::to_string(&SysStateResponse::GetPeerIdFailure).unwrap();
+                    return SysStateResponse::GetPeerIdFailure.to_json();
                 }
-                serde_json::to_string(&SysStateResponse::PeerId {
+                SysStateResponse::PeerId {
                     peer_id: base64::encode(pub_key.unwrap()),
-                })
-                .unwrap()
+                }
+                .to_json()
             }
             SysStateRequest::SystemCheck => {
                 let (supplier_check, consumer_check) = System::check_system();
-                serde_json::to_string(&SysStateResponse::SystemCheck {
+                SysStateResponse::SystemCheck {
                     supplier_check,
                     consumer_check,
-                })
-                .unwrap()
+                }
+                .to_json()
             }
             SysStateRequest::SetAdbPath { adb_path } => {
                 let adb_path = PathBuf::from(adb_path);
                 let result = adb_utils::set_adb_path(adb_path);
                 if result.is_err() {
-                    return serde_json::to_string(&SysStateResponse::SetAdbPathFailure {
+                    return SysStateResponse::SetAdbPathFailure {
                         reason: result.err().unwrap().to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
-                serde_json::to_string(&SysStateResponse::SetAdbPathSuccess).unwrap()
+                SysStateResponse::SetAdbPathSuccess.to_json()
             }
             SysStateRequest::SetScrcpyPath { scrcpy_path } => {
                 let scrcpy_path = PathBuf::from(scrcpy_path);
                 let result = adb_utils::set_scrcpy_path(scrcpy_path);
                 if result.is_err() {
-                    return serde_json::to_string(&SysStateResponse::SetScrcpyPathFailure {
+                    return SysStateResponse::SetScrcpyPathFailure {
                         reason: result.err().unwrap().to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
-                serde_json::to_string(&SysStateResponse::SetScrcpyPathSuccess).unwrap()
+                SysStateResponse::SetScrcpyPathSuccess.to_json()
             }
             SysStateRequest::Shutdown => {
                 System::server_shutdown();
@@ -563,20 +563,20 @@ impl System {
                     SysState::reset_state();
                     SysState::stop_system();
                 });
-                serde_json::to_string(&SysStateResponse::ShutDownSuccess).unwrap()
+                SysStateResponse::ShutDownSuccess.to_json()
             }
             SysStateRequest::StartMarketMaker => match System::start_market_maker() {
-                Ok(_) => serde_json::to_string(&SysStateResponse::StartMarketMakerSuccess).unwrap(),
-                Err(e) => serde_json::to_string(&SysStateResponse::StartMarketMakerFailed {
+                Ok(_) => SysStateResponse::StartMarketMakerSuccess.to_json(),
+                Err(e) => SysStateResponse::StartMarketMakerFailed {
                     reason: e.to_string(),
-                })
-                .unwrap(),
+                }
+                .to_json(),
             },
             SysStateRequest::StopMarketMaker => {
                 if System::stop_market_maker() {
-                    serde_json::to_string(&SysStateResponse::StopMarketMakerSuccess).unwrap()
+                    SysStateResponse::StopMarketMakerSuccess.to_json()
                 } else {
-                    serde_json::to_string(&SysStateResponse::StopMarketMakerFailed).unwrap()
+                    SysStateResponse::StopMarketMakerFailed.to_json()
                 }
             }
             SysStateRequest::StartSupplier {
@@ -585,17 +585,17 @@ impl System {
                 name,
                 secure_comms,
             } => match System::start_supplier_and_connect(&mm_host, mm_port, name, secure_comms) {
-                Ok(_) => serde_json::to_string(&SysStateResponse::StartSupplierSuccess).unwrap(),
-                Err(e) => serde_json::to_string(&SysStateResponse::StartSupplierFailed {
+                Ok(_) => SysStateResponse::StartSupplierSuccess.to_json(),
+                Err(e) => SysStateResponse::StartSupplierFailed {
                     reason: e.to_string(),
-                })
-                .unwrap(),
+                }
+                .to_json(),
             },
             SysStateRequest::StopSupplier => {
                 if System::stop_supplier(false) {
-                    serde_json::to_string(&SysStateResponse::StopSupplierSuccess).unwrap()
+                    SysStateResponse::StopSupplierSuccess.to_json()
                 } else {
-                    serde_json::to_string(&SysStateResponse::StopSupplierFailed).unwrap()
+                    SysStateResponse::StopSupplierFailed.to_json()
                 }
             }
             SysStateRequest::StartConsumer {
@@ -603,20 +603,20 @@ impl System {
                 mm_port,
                 name,
             } => match System::start_consumer_and_connect(&mm_host, mm_port, name) {
-                Ok(_) => serde_json::to_string(&SysStateResponse::StartConsumerSuccess).unwrap(),
-                Err(e) => serde_json::to_string(&SysStateResponse::StartConsumerFailed {
+                Ok(_) => SysStateResponse::StartConsumerSuccess.to_json(),
+                Err(e) => SysStateResponse::StartConsumerFailed {
                     reason: e.to_string(),
-                })
-                .unwrap(),
+                }
+                .to_json(),
             },
             SysStateRequest::StopConsumer => {
                 if System::stop_consumer(false) {
-                    serde_json::to_string(&SysStateResponse::StopConsumerSuccess).unwrap()
+                    SysStateResponse::StopConsumerSuccess.to_json()
                 } else {
-                    serde_json::to_string(&SysStateResponse::StopConsumerFailed).unwrap()
+                    SysStateResponse::StopConsumerFailed.to_json()
                 }
             }
-            _ => serde_json::to_string(&SysStateResponse::RequestNotAllowed).unwrap(),
+            _ => SysStateResponse::RequestNotAllowed.to_json(),
         }
     }
 }
@@ -662,7 +662,7 @@ impl Default for SupplierSpec {
 }
 
 impl Display for SupplierSpec {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"SupplierSpec:
@@ -708,7 +708,7 @@ impl Default for ConsumerSpec {
 }
 
 impl Display for ConsumerSpec {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"ConsumerSpec:
@@ -751,7 +751,7 @@ pub struct DeviceSpec {
 }
 
 impl Display for DeviceSpec {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"device_id: {}   android_serial: {}   {}",
@@ -787,7 +787,7 @@ pub enum DeviceFilter {
 }
 
 impl Display for DeviceFilter {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::IsAvailable(is_available) => {
                 if *is_available {
@@ -853,7 +853,7 @@ pub struct DeviceFilterVec {
 }
 
 impl Display for DeviceFilterVec {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut availability_str = String::new();
         let mut filter_str = String::new();
 
@@ -904,7 +904,7 @@ impl Default for SupplierCheck {
 }
 
 impl Display for SupplierCheck {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             SupplierCheck::Supported { .. } => write!(f, "Supported"),
             SupplierCheck::AdbNotSupported { ver_info } => {
@@ -945,7 +945,7 @@ pub struct ConsumerVerInfo {
 }
 
 impl Display for ConsumerVerInfo {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"Consumer version info:
@@ -1008,7 +1008,7 @@ impl Default for ConsumerCheck {
 }
 
 impl Display for ConsumerCheck {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ConsumerCheck::FullSupport { ver_info } => {
                 write!(f, "ADB and SCRCPY supported\n{}", ver_info)
@@ -1159,26 +1159,25 @@ mod tests {
 
         let client = TCPClient::new("localhost", SysStateDefaultConfig::BIND_PORT).unwrap();
 
-        let data = serde_json::to_string(&Request::System(SysStateRequest::GetState)).unwrap();
-        let response = client.send(&data, None).unwrap();
-        let expected_response = serde_json::to_string(&SysStateResponse::CurrentSysState {
+        let request = Request::System(SysStateRequest::GetState);
+        let response = client.send_request(&request, None).unwrap();
+        let expected_response = SysStateResponse::CurrentSysState {
             state: SysStateMin::default(),
-        })
-        .unwrap();
+        }
+        .to_json();
         assert_eq!(response, expected_response);
 
-        let data = serde_json::to_string(&Request::System(SysStateRequest::GetPeerId)).unwrap();
-        let response = client.send(&data, None).unwrap();
+        let request = Request::System(SysStateRequest::GetPeerId);
+        let response = client.send_request(&request, None).unwrap();
         let pub_key = SystemKeypair::get_public_key().map_or(String::new(), base64::encode);
-        let expected_response =
-            serde_json::to_string(&SysStateResponse::PeerId { peer_id: pub_key }).unwrap();
+        let expected_response = SysStateResponse::PeerId { peer_id: pub_key }.to_json();
         assert_eq!(response, expected_response);
 
         System::start_market_maker().unwrap();
 
-        let data = serde_json::to_string(&Request::MarketMaker(MarketMakerRequest::Test)).unwrap();
-        let response = client.send(&data, None).unwrap();
-        let expected_response = serde_json::to_string(&MarketMakerResponse::Test).unwrap();
+        let request = Request::MarketMaker(MarketMakerRequest::Test);
+        let response = client.send_request(&request, None).unwrap();
+        let expected_response = MarketMakerResponse::Test.to_json();
         assert_eq!(response, expected_response);
 
         System::start_supplier_and_connect(

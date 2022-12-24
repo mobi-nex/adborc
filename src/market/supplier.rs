@@ -99,7 +99,7 @@ pub(super) struct SupplierState {
 }
 
 impl Display for SupplierState {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"Current Supplier Status:
@@ -133,7 +133,7 @@ pub struct SupplierStateMin {
 }
 
 impl Display for SupplierStateMin {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"Current Supplier Status:
@@ -392,10 +392,9 @@ impl Supplier {
         let supply_request = Request::MarketMaker(MarketMakerRequest::SupplierConnect {
             supplier: supplier_spec,
         });
-        let supply_request = serde_json::to_string(&supply_request).unwrap();
-        let response = client.send(supply_request.as_str(), None)?;
+        let response = client.send_request(&supply_request, None)?;
 
-        let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+        let response = MarketMakerResponse::from_str(&response).unwrap();
         if let MarketMakerResponse::SupplierConnected {
             supplier: supplier_spec,
             pub_key,
@@ -443,8 +442,7 @@ impl Supplier {
             let mm_addr = mm_addr.unwrap();
             let client = TCPClient::from(mm_addr);
             let heartbeat_request = Request::MarketMaker(MarketMakerRequest::SupplierHeartBeat);
-            let heartbeat_request = serde_json::to_string(&heartbeat_request).unwrap();
-            let response = match client.send(heartbeat_request.as_str(), None) {
+            let response = match client.send_request(&heartbeat_request, None) {
                 Ok(response) => response,
                 Err(e) => {
                     error!("Failed to send heartbeat to Market Maker: {}", e);
@@ -452,7 +450,7 @@ impl Supplier {
                     break;
                 }
             };
-            let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+            let response = MarketMakerResponse::from_str(&response).unwrap();
             if let MarketMakerResponse::HeartBeatResponse = response {
                 debug!("Heartbeat sent successfully.");
             } else {
@@ -543,7 +541,6 @@ impl Supplier {
         // Unwrapping of serialing/deserializing is safe, because we use request/response objects
         // that are known to be serializable/deserializable.
         let request = Request::MarketMaker(MarketMakerRequest::SupplyDevices { devices });
-        let request = serde_json::to_string(&request).unwrap();
         let mm_addr = SupplierState::get_addr();
         if mm_addr.is_none() {
             error!("Market Maker address is not set. Skipping supply devices.");
@@ -559,7 +556,7 @@ impl Supplier {
 
         let mm_addr = mm_addr.unwrap();
         let client = TCPClient::from(mm_addr);
-        let response = client.send(&request, None);
+        let response = client.send_request(&request, None);
         if response.is_err() {
             error!(
                 "Failed to send SupplyDevices request to Market Maker: {}",
@@ -574,7 +571,7 @@ impl Supplier {
             ));
         }
         let response = response.unwrap();
-        let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+        let response = MarketMakerResponse::from_str(&response).unwrap();
         if let MarketMakerResponse::DevicesSupplied {
             supplied_devices,
             failed_devices,
@@ -609,10 +606,10 @@ impl Supplier {
         let mm_addr = SupplierState::get_addr();
         if mm_addr.is_none() {
             error!("Market Maker address is not set. Skipping reclaim device.");
-            return serde_json::to_string(&MarketMakerResponse::DeviceNotReclaimed {
+            return MarketMakerResponse::DeviceNotReclaimed {
                 reason: "Fatal: Market Maker address not set.".to_string(),
-            })
-            .unwrap();
+            }
+            .to_json();
         }
 
         let mm_addr = mm_addr.unwrap();
@@ -623,40 +620,40 @@ impl Supplier {
                 "Failed to send ReclaimDevice request to Market Maker: {}",
                 response.err().unwrap()
             );
-            return serde_json::to_string(&SupplierResponse::DeviceNotReclaimed {
+            return SupplierResponse::DeviceNotReclaimed {
                 reason: "Failed to send ReclaimDevice request to Market Maker".to_string(),
-            })
-            .unwrap();
+            }
+            .to_json();
         }
         let response = response.unwrap();
-        let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+        let response = MarketMakerResponse::from_str(&response).unwrap();
         match response {
             MarketMakerResponse::DeviceReclaimed { device_id } => {
                 let port = SupplierState::get_port_of_device(&device_id);
                 if port.is_none() {
                     // This should not happen.
                     error!("Device {} not found in port map", device_id);
-                    return serde_json::to_string(&SupplierResponse::DeviceNotReclaimed {
+                    return SupplierResponse::DeviceNotReclaimed {
                         reason: "Device not found in port map".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let port = port.unwrap();
                 adb_utils::kill_adb_server_for_port(port);
                 SupplierState::remove_port(&device_id);
                 SupplierState::remove_port_forwarder(&device_id);
                 ScrCpyState::remove_port_forwarder(&device_id);
-                serde_json::to_string(&SupplierResponse::DeviceReclaimed { device_id }).unwrap()
+                SupplierResponse::DeviceReclaimed { device_id }.to_json()
             }
             MarketMakerResponse::DeviceNotReclaimed { reason } => {
-                serde_json::to_string(&SupplierResponse::DeviceNotReclaimed { reason }).unwrap()
+                SupplierResponse::DeviceNotReclaimed { reason }.to_json()
             }
             _ => {
                 error!("Unexpected response from Market Maker: {:?}", response);
-                serde_json::to_string(&SupplierResponse::DeviceNotReclaimed {
+                SupplierResponse::DeviceNotReclaimed {
                     reason: format!("Unexpected response from Market Maker: {:?}", response),
-                })
-                .unwrap()
+                }
+                .to_json()
             }
         }
     }
@@ -772,27 +769,25 @@ impl Supplier {
         // that are known to be serializable/deserializable.
         let is_market_maker = || SupplierState::verify_market_maker(&peer_id);
         match request {
-            SupplierRequest::Test => serde_json::to_string(&SupplierResponse::Test).unwrap(),
+            SupplierRequest::Test => SupplierResponse::Test.to_json(),
 
             SupplierRequest::Status if peer_addr.ip().is_loopback() => {
                 let state = SupplierState::get_min_state();
-                serde_json::to_string(&SupplierResponse::Status { state }).unwrap()
+                SupplierResponse::Status { state }.to_json()
             }
 
             SupplierRequest::SupplyDevices { devices } if peer_addr.ip().is_loopback() => {
                 debug!("Supplying devices: {:?}", devices);
                 match Supplier::supply_devices(devices) {
-                    Ok((supplied_devices, failed_devices)) => {
-                        serde_json::to_string(&SupplierResponse::DevicesSupplied {
-                            supplied_devices,
-                            failed_devices,
-                        })
-                        .unwrap()
+                    Ok((supplied_devices, failed_devices)) => SupplierResponse::DevicesSupplied {
+                        supplied_devices,
+                        failed_devices,
                     }
-                    Err(e) => serde_json::to_string(&SupplierResponse::DeviceSupplyFailure {
+                    .to_json(),
+                    Err(e) => SupplierResponse::DeviceSupplyFailure {
                         reason: e.to_string(),
-                    })
-                    .unwrap(),
+                    }
+                    .to_json(),
                 }
             }
 
@@ -803,7 +798,7 @@ impl Supplier {
 
             SupplierRequest::MarketMakerTerminating if is_market_maker() => {
                 thread::spawn(Supplier::market_maker_terminate);
-                serde_json::to_string(&SupplierResponse::TerminationAcknowledged).unwrap()
+                SupplierResponse::TerminationAcknowledged.to_json()
             }
 
             SupplierRequest::StartSecureTunnel {
@@ -814,14 +809,11 @@ impl Supplier {
                 debug!("Starting secure tunnel for device: {}", device_id);
                 let port = Supplier::start_forwarder(&device_id, port, pub_key);
                 match port {
-                    Ok(port) => {
-                        serde_json::to_string(&SupplierResponse::SecureTunnelStarted { port })
-                            .unwrap()
-                    }
-                    Err(e) => serde_json::to_string(&SupplierResponse::SecureTunnelStartFailure {
+                    Ok(port) => SupplierResponse::SecureTunnelStarted { port }.to_json(),
+                    Err(e) => SupplierResponse::SecureTunnelStartFailure {
                         reason: e.to_string(),
-                    })
-                    .unwrap(),
+                    }
+                    .to_json(),
                 }
             }
 
@@ -829,7 +821,7 @@ impl Supplier {
                 debug!("Stopping secure tunnel for device: {}", device_id);
                 SupplierState::remove_port_forwarder(&device_id);
                 ScrCpyState::remove_port_forwarder(&device_id);
-                serde_json::to_string(&SupplierResponse::SecureTunnelStopped).unwrap()
+                SupplierResponse::SecureTunnelStopped.to_json()
             }
 
             SupplierRequest::StartScrcpyTunnel {
@@ -849,23 +841,20 @@ impl Supplier {
                 );
                 match port {
                     Ok(_) => {
-                        serde_json::to_string(&SupplierResponse::ScrcpyTunnelSuccess )
-                            .unwrap()
+                        SupplierResponse::ScrcpyTunnelSuccess.to_json()
                     }
                     Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
-                        serde_json::to_string(&SupplierResponse::ScrcpyTunnelFailure {
+                        SupplierResponse::ScrcpyTunnelFailure {
                             reason: "Unable to allocate the required port on Supplier side.\nPlease try again.".to_string(),
-                        })
-                        .unwrap()
+                        }.to_json()
                     }
-                    Err(e) => serde_json::to_string(&SupplierResponse::ScrcpyTunnelFailure {
+                    Err(e) => SupplierResponse::ScrcpyTunnelFailure {
                         reason: e.to_string(),
-                    })
-                    .unwrap(),
+                    }.to_json(),
                 }
             }
 
-            _ => serde_json::to_string(&SupplierResponse::RequestNotAllowed).unwrap(),
+            _ => SupplierResponse::RequestNotAllowed.to_json(),
         }
     }
 }

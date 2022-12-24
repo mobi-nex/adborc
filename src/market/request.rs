@@ -3,6 +3,21 @@ use crate::util::adb_utils::ScrCpyArgs;
 use super::{supplier::SupplierStateMin, DeviceFilterVec, *};
 use consumer::ConsumerStateMin;
 use marketmaker::MarketMakerMinState;
+use serde::Serialize;
+use std::str::FromStr;
+
+pub trait GetRequest {
+    fn get_request(self) -> Request;
+}
+
+pub trait ToJson {
+    fn to_json(&self) -> String
+    where
+        Self: Serialize,
+    {
+        serde_json::to_string(self).unwrap()
+    }
+}
 
 /// Wrapper enum for all the possible requests that can be sent to the
 /// network node.
@@ -124,7 +139,7 @@ pub enum SysStateResponse {
 }
 
 impl Display for SysStateResponse {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             SysStateResponse::CurrentSysState { state } => write!(f, "{}", state),
             SysStateResponse::PeerId { peer_id } => write!(f, "PeerId: {}", peer_id),
@@ -367,7 +382,7 @@ pub enum MarketMakerResponse {
 }
 
 impl Display for MarketMakerResponse {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             MarketMakerResponse::Test => write!(f, "Test"),
             MarketMakerResponse::Status { state } => write!(f, "{}", state),
@@ -579,7 +594,7 @@ pub enum SupplierResponse {
 }
 
 impl Display for SupplierResponse {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             SupplierResponse::Test => write!(f, "Test"),
             SupplierResponse::Status { state } => write!(f, "{}", state),
@@ -740,7 +755,7 @@ pub enum ConsumerResponse {
 }
 
 impl Display for ConsumerResponse {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ConsumerResponse::Test => write!(f, "Test"),
             ConsumerResponse::Status { state } => write!(f, "{}", state),
@@ -827,5 +842,70 @@ impl Display for ConsumerResponse {
                 write!(f, "Error processing request: {}", reason)
             }
         }
+    }
+}
+
+impl GetRequest for SysStateRequest {
+    fn get_request(self) -> Request {
+        Request::System(self)
+    }
+}
+
+impl GetRequest for MarketMakerRequest {
+    fn get_request(self) -> Request {
+        Request::MarketMaker(self)
+    }
+}
+
+impl GetRequest for SupplierRequest {
+    fn get_request(self) -> Request {
+        Request::Supplier(self)
+    }
+}
+
+impl GetRequest for ConsumerRequest {
+    fn get_request(self) -> Request {
+        Request::Consumer(self)
+    }
+}
+
+impl ToJson for SysStateResponse {}
+impl ToJson for MarketMakerResponse {}
+impl ToJson for SupplierResponse {}
+impl ToJson for ConsumerResponse {}
+
+impl FromStr for Request {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
+impl FromStr for SysStateResponse {
+    type Err = serde_json::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
+impl FromStr for MarketMakerResponse {
+    type Err = serde_json::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
+impl FromStr for SupplierResponse {
+    type Err = serde_json::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
+impl FromStr for ConsumerResponse {
+    type Err = serde_json::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
     }
 }
