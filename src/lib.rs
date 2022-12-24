@@ -74,7 +74,7 @@
 //! // Construct a request to start the marketmaker.
 //! let request = Request::System(SysStateRequest::StartMarketMaker);
 //! let response = client.send_request(&request, None).unwrap();
-//! let expected_response = SysStateResponse::StartMarketMakerSuccess;
+//! let expected_response = Response(System(SysStateResponse::StartMarketMakerSuccess));
 //! assert_eq!(response, serde_json::to_string(&expected_response).unwrap());
 //! ```
 //!

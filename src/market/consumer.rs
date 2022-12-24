@@ -762,7 +762,10 @@ impl Consumer {
         let mm_addr = mm_addr.unwrap();
         let client = TCPClient::from(mm_addr);
         let response = client.send_request(&request, None)?;
-        let response = MarketMakerResponse::from_str(&response)?;
+        let response = MarketMakerResponse::from_str(&response).map_err(|e| {
+            error!("Error parsing response from Market Maker: {}", e);
+            io::Error::new(io::ErrorKind::Other, e.to_string())
+        })?;
         match response {
             MarketMakerResponse::ScrcpyTunnelSuccess => Ok(portforwarder),
             MarketMakerResponse::ScrcpyTunnelFailure { reason } => {

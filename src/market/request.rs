@@ -11,12 +11,7 @@ pub trait GetRequest {
 }
 
 pub trait ToJson {
-    fn to_json(&self) -> String
-    where
-        Self: Serialize,
-    {
-        serde_json::to_string(self).unwrap()
-    }
+    fn to_json(self) -> String;
 }
 
 /// Wrapper enum for all the possible requests that can be sent to the
@@ -29,6 +24,55 @@ pub enum Request {
     Consumer(ConsumerRequest),
 }
 
+/// Wrapper enum for all the possible responses that can be sent from the
+/// network node.
+#[derive(Serialize, Deserialize)]
+pub enum Response {
+    System(SysStateResponse),
+    MarketMaker(MarketMakerResponse),
+    Supplier(SupplierResponse),
+    Consumer(ConsumerResponse),
+}
+
+impl Display for Response {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Response::System(response) => write!(f, "{}", response),
+            Response::MarketMaker(response) => write!(f, "{}", response),
+            Response::Supplier(response) => write!(f, "{}", response),
+            Response::Consumer(response) => write!(f, "{}", response),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseResponseError {
+    BadResponse,
+    BadSystemResponse,
+    BadMarketMakerResponse,
+    BadSupplierResponse,
+    BadConsumerResponse,
+}
+
+impl Display for ParseResponseError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ParseResponseError::BadResponse => write!(f, "Bad response"),
+            ParseResponseError::BadSystemResponse => {
+                write!(f, "Bad system response")
+            }
+            ParseResponseError::BadMarketMakerResponse => {
+                write!(f, "Bad market maker response")
+            }
+            ParseResponseError::BadSupplierResponse => {
+                write!(f, "Bad supplier response")
+            }
+            ParseResponseError::BadConsumerResponse => {
+                write!(f, "Bad consumer response")
+            }
+        }
+    }
+}
 /// List of valid requests for the SysState listener.
 /// These requests are usually sent to the SysState Listener
 /// from the local TCPClient.
@@ -869,10 +913,26 @@ impl GetRequest for ConsumerRequest {
     }
 }
 
-impl ToJson for SysStateResponse {}
-impl ToJson for MarketMakerResponse {}
-impl ToJson for SupplierResponse {}
-impl ToJson for ConsumerResponse {}
+impl ToJson for SysStateResponse {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Response::System(self)).unwrap()
+    }
+}
+impl ToJson for MarketMakerResponse {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Response::MarketMaker(self)).unwrap()
+    }
+}
+impl ToJson for SupplierResponse {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Response::Supplier(self)).unwrap()
+    }
+}
+impl ToJson for ConsumerResponse {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Response::Consumer(self)).unwrap()
+    }
+}
 
 impl FromStr for Request {
     type Err = serde_json::Error;
@@ -882,30 +942,66 @@ impl FromStr for Request {
     }
 }
 
-impl FromStr for SysStateResponse {
+impl FromStr for Response {
     type Err = serde_json::Error;
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         serde_json::from_str(s)
+    }
+}
+
+impl FromStr for SysStateResponse {
+    type Err = ParseResponseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(response) = Response::from_str(s) {
+            match response {
+                Response::System(r) => Ok(r),
+                _ => Err(ParseResponseError::BadSystemResponse),
+            }
+        } else {
+            Err(ParseResponseError::BadResponse)
+        }
     }
 }
 
 impl FromStr for MarketMakerResponse {
-    type Err = serde_json::Error;
+    type Err = ParseResponseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s)
+        if let Ok(response) = Response::from_str(s) {
+            match response {
+                Response::MarketMaker(r) => Ok(r),
+                _ => Err(ParseResponseError::BadMarketMakerResponse),
+            }
+        } else {
+            Err(ParseResponseError::BadResponse)
+        }
     }
 }
 
 impl FromStr for SupplierResponse {
-    type Err = serde_json::Error;
+    type Err = ParseResponseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s)
+        if let Ok(response) = Response::from_str(s) {
+            match response {
+                Response::Supplier(r) => Ok(r),
+                _ => Err(ParseResponseError::BadSupplierResponse),
+            }
+        } else {
+            Err(ParseResponseError::BadResponse)
+        }
     }
 }
 
 impl FromStr for ConsumerResponse {
-    type Err = serde_json::Error;
+    type Err = ParseResponseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s)
+        if let Ok(response) = Response::from_str(s) {
+            match response {
+                Response::Consumer(r) => Ok(r),
+                _ => Err(ParseResponseError::BadConsumerResponse),
+            }
+        } else {
+            Err(ParseResponseError::BadResponse)
+        }
     }
 }

@@ -323,14 +323,15 @@ fn map_processing_error(error: Error, res_type: ResponseType) -> String {
     }
 }
 
-fn send_request<T>(spec_request: T, res_type: ResponseType, client: &TCPClient) -> String
+fn send_request<T>(spec_request: T, res_type: ResponseType, client: &TCPClient) -> Response
 where
     T: GetRequest + Serialize,
 {
     let request = spec_request.get_request();
-    client
+    let response = client
         .send_request(&request, None)
-        .unwrap_or_else(|e| map_processing_error(e, res_type))
+        .unwrap_or_else(|e| map_processing_error(e, res_type));
+    Response::from_str(&response).unwrap()
 }
 
 impl Cli {
@@ -433,10 +434,9 @@ impl Cli {
             ResponseType::System,
             &client,
         );
-        let response = SysStateResponse::from_str(&response).unwrap();
         match response {
-            SysStateResponse::ClientOk => {} // Do nothing.
-            SysStateResponse::ClientError { reason } => {
+            Response::System(SysStateResponse::ClientOk) => {} // Do nothing.
+            Response::System(SysStateResponse::ClientError { reason }) => {
                 println!("{}", reason);
                 return;
             }
@@ -458,23 +458,19 @@ fn process_command(command: Commands, client: TCPClient) {
     match command {
         Commands::Status => {
             let response = send_request(SysStateRequest::GetState, ResponseType::System, &client);
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::Shutdown => {
             let response = send_request(SysStateRequest::Shutdown, ResponseType::System, &client);
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::GetNetworkId => {
             let response = send_request(SysStateRequest::GetPeerId, ResponseType::System, &client);
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::Check => {
             let response =
                 send_request(SysStateRequest::SystemCheck, ResponseType::System, &client);
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::SetAdbPath { path } => {
@@ -483,7 +479,6 @@ fn process_command(command: Commands, client: TCPClient) {
                 ResponseType::System,
                 &client,
             );
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::SetScrcpyPath { path } => {
@@ -492,7 +487,6 @@ fn process_command(command: Commands, client: TCPClient) {
                 ResponseType::System,
                 &client,
             );
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         Commands::Marketmaker(cmd) => process_market_maker_command(cmd, client),
@@ -512,7 +506,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
                 ResponseType::MarketMaker,
                 &client,
             );
-            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::Start => {
@@ -521,7 +514,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
                 ResponseType::System,
                 &client,
             );
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::Stop => {
@@ -530,7 +522,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
                 ResponseType::System,
                 &client,
             );
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::UseWhitelist => {
@@ -539,7 +530,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
                 ResponseType::MarketMaker,
                 &client,
             );
-            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::ResetWhitelist => {
@@ -548,7 +538,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
                 ResponseType::MarketMaker,
                 &client,
             );
-            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::AddSupplier { peer_id } => {
@@ -557,7 +546,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
                 ResponseType::MarketMaker,
                 &client,
             );
-            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::RemoveSupplier { peer_id } => {
@@ -566,7 +554,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
                 ResponseType::MarketMaker,
                 &client,
             );
-            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::AddConsumer { peer_id } => {
@@ -575,7 +562,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
                 ResponseType::MarketMaker,
                 &client,
             );
-            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         MarketMakerCommands::RemoveConsumer { peer_id } => {
@@ -584,7 +570,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
                 ResponseType::MarketMaker,
                 &client,
             );
-            let response = MarketMakerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
     }
@@ -594,7 +579,6 @@ fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
     match command {
         SupplierCommands::Status => {
             let response = send_request(SupplierRequest::Status, ResponseType::Supplier, &client);
-            let response = SupplierResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         SupplierCommands::Start {
@@ -613,13 +597,11 @@ fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
                 ResponseType::System,
                 &client,
             );
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         SupplierCommands::Stop => {
             let response =
                 send_request(SysStateRequest::StopSupplier, ResponseType::System, &client);
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         SupplierCommands::Supply { devices } => {
@@ -628,7 +610,6 @@ fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
                 ResponseType::Supplier,
                 &client,
             );
-            let response = SupplierResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         SupplierCommands::Reclaim { device, force } => {
@@ -640,7 +621,6 @@ fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
                 ResponseType::Supplier,
                 &client,
             );
-            let response = SupplierResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
     }
@@ -650,7 +630,6 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
     match command {
         ConsumerCommands::Status => {
             let response = send_request(ConsumerRequest::Status, ResponseType::Consumer, &client);
-            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::Start { remote, port, user } => {
@@ -663,13 +642,11 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 ResponseType::System,
                 &client,
             );
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::Stop => {
             let response =
                 send_request(SysStateRequest::StopConsumer, ResponseType::System, &client);
-            let response = SysStateResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::Reserve { device, no_default } => {
@@ -681,7 +658,6 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 ResponseType::Consumer,
                 &client,
             );
-            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::Release { device } => {
@@ -700,7 +676,6 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                     &client,
                 )
             };
-            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::ListAvailable => {
@@ -709,7 +684,6 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 ResponseType::Consumer,
                 &client,
             );
-            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::GetDevices {
@@ -752,14 +726,12 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 ResponseType::Consumer,
                 &client,
             );
-            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::ListReserved => {
             let response = send_request(ConsumerRequest::Status, ResponseType::Consumer, &client);
-            let response = ConsumerResponse::from_str(&response).unwrap();
             match response {
-                ConsumerResponse::Status { state } => {
+                Response::Consumer(ConsumerResponse::Status { state }) => {
                     let reserved_devices = state.devices;
                     let using_device = state.using_device.unwrap_or_default();
                     println!("Reserved devices:");
@@ -789,7 +761,6 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 ResponseType::Consumer,
                 &client,
             );
-            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::Scrcpy { device, args } => {
@@ -802,7 +773,6 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 ResponseType::Consumer,
                 &client,
             );
-            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::SetScrcpyArgs(args) => {
@@ -812,7 +782,6 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 ResponseType::Consumer,
                 &client,
             );
-            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::GetScrcpyArgs => {
@@ -821,7 +790,6 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 ResponseType::Consumer,
                 &client,
             );
-            let response = ConsumerResponse::from_str(&response).unwrap();
             println!("{}", response);
         }
         ConsumerCommands::ScrcpyShortcuts => {
