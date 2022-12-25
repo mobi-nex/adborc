@@ -29,6 +29,5 @@ fn main() {
         })
         .init();
 
-    let cli = Cli::parse();
-    cli.process();
+    Cli::parse().process();
 }

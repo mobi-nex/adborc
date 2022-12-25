@@ -272,6 +272,14 @@ pub enum ConsumerCommands {
         #[clap(flatten)]
         args: ScrcpyCliArgs,
     },
+    /// Stop device screen mirroring for a device.
+    /// Note: This doesn't work if the Consumer and Supplier are on the same machine.
+    ///       see: https://github.com/mobi-nex/adborc/issues/16 for more information. 
+    StopScrcpy {
+        /// `device_id` of the device to stop scrcpy for.
+        #[clap(value_parser)]
+        device: String,
+    },
     /// Set the default arguments for `scrcpy`.
     SetScrcpyArgs(ScrcpyCliArgs),
     /// Get the default arguments for `scrcpy` if set using `adborc consumer set-scrcpy-args`.
@@ -688,6 +696,10 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 },
                 &client,
             );
+            println!("{}", response);
+        }
+        ConsumerCommands::StopScrcpy { device } => {
+            let response = send_request(ConsumerRequest::StopScrCpy { device_id: device }, &client);
             println!("{}", response);
         }
         ConsumerCommands::SetScrcpyArgs(args) => {
