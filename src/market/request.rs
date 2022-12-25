@@ -422,9 +422,6 @@ pub enum MarketMakerResponse {
     InvalidRequest {
         request: String,
     },
-    RequestProcessingError {
-        reason: String,
-    },
 }
 
 impl Display for MarketMakerResponse {
@@ -547,9 +544,6 @@ impl Display for MarketMakerResponse {
             MarketMakerResponse::InvalidRequest { request } => {
                 write!(f, "Invalid request: {}", request)
             }
-            MarketMakerResponse::RequestProcessingError { reason } => {
-                write!(f, "Error processing request: {}", reason)
-            }
         }
     }
 }
@@ -634,9 +628,6 @@ pub enum SupplierResponse {
     InvalidRequest {
         request: String,
     },
-    RequestProcessingError {
-        reason: String,
-    },
 }
 
 impl Display for SupplierResponse {
@@ -693,9 +684,6 @@ impl Display for SupplierResponse {
             SupplierResponse::RequestNotAllowed => write!(f, "Request not allowed"),
             SupplierResponse::InvalidRequest { request } => {
                 write!(f, "Invalid request: {}", request)
-            }
-            SupplierResponse::RequestProcessingError { reason } => {
-                write!(f, "Error processing request: {}", reason)
             }
         }
     }
@@ -795,9 +783,6 @@ pub enum ConsumerResponse {
     InvalidRequest {
         request: String,
     },
-    RequestProcessingError {
-        reason: String,
-    },
 }
 
 impl Display for ConsumerResponse {
@@ -883,9 +868,6 @@ impl Display for ConsumerResponse {
             ConsumerResponse::RequestNotAllowed => write!(f, "Request not allowed"),
             ConsumerResponse::InvalidRequest { request } => {
                 write!(f, "Invalid request: {}", request)
-            }
-            ConsumerResponse::RequestProcessingError { reason } => {
-                write!(f, "Error processing request: {}", reason)
             }
         }
     }

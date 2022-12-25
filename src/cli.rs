@@ -7,7 +7,7 @@ use adborc::util::{
 use clap::{Parser, Subcommand};
 use log::error;
 use std::collections::HashSet;
-use std::io::{self, Error};
+use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::str::FromStr;
 
@@ -294,41 +294,16 @@ fn init_listener() -> io::Result<()> {
     SysState::start_system()
 }
 
-enum ResponseType {
-    System,
-    MarketMaker,
-    Supplier,
-    Consumer,
-}
-
-fn map_processing_error(error: Error, res_type: ResponseType) -> String {
-    match res_type {
-        ResponseType::System => SysStateResponse::RequestProcessingError {
-            reason: format!("{}", error),
-        }
-        .to_json(),
-        ResponseType::MarketMaker => MarketMakerResponse::RequestProcessingError {
-            reason: format!("{}", error),
-        }
-        .to_json(),
-        ResponseType::Supplier => SupplierResponse::RequestProcessingError {
-            reason: format!("{}", error),
-        }
-        .to_json(),
-        ResponseType::Consumer => ConsumerResponse::RequestProcessingError {
-            reason: format!("{}", error),
-        }
-        .to_json(),
-    }
-}
-
-fn send_request<T>(request: T, res_type: ResponseType, client: &TCPClient) -> Response
+fn send_request<T>(request: T, client: &TCPClient) -> Response
 where
     T: ToJson,
 {
-    let response = client
-        .send_request(request, None)
-        .unwrap_or_else(|e| map_processing_error(e, res_type));
+    let response = client.send_request(request, None).unwrap_or_else(|e| {
+        SysStateResponse::RequestProcessingError {
+            reason: e.to_string(),
+        }
+        .to_json()
+    });
     Response::from_str(&response).unwrap()
 }
 
@@ -429,7 +404,6 @@ impl Cli {
             SysStateRequest::CheckVersion {
                 version: ADBORC_VERSION.to_string(),
             },
-            ResponseType::System,
             &client,
         );
         match response {
@@ -455,34 +429,28 @@ impl Cli {
 fn process_command(command: Commands, client: TCPClient) {
     match command {
         Commands::Status => {
-            let response = send_request(SysStateRequest::GetState, ResponseType::System, &client);
+            let response = send_request(SysStateRequest::GetState, &client);
             println!("{}", response);
         }
         Commands::Shutdown => {
-            let response = send_request(SysStateRequest::Shutdown, ResponseType::System, &client);
+            let response = send_request(SysStateRequest::Shutdown, &client);
             println!("{}", response);
         }
         Commands::GetNetworkId => {
-            let response = send_request(SysStateRequest::GetPeerId, ResponseType::System, &client);
+            let response = send_request(SysStateRequest::GetPeerId, &client);
             println!("{}", response);
         }
         Commands::Check => {
-            let response =
-                send_request(SysStateRequest::SystemCheck, ResponseType::System, &client);
+            let response = send_request(SysStateRequest::SystemCheck, &client);
             println!("{}", response);
         }
         Commands::SetAdbPath { path } => {
-            let response = send_request(
-                SysStateRequest::SetAdbPath { adb_path: path },
-                ResponseType::System,
-                &client,
-            );
+            let response = send_request(SysStateRequest::SetAdbPath { adb_path: path }, &client);
             println!("{}", response);
         }
         Commands::SetScrcpyPath { path } => {
             let response = send_request(
                 SysStateRequest::SetScrcpyPath { scrcpy_path: path },
-                ResponseType::System,
                 &client,
             );
             println!("{}", response);
@@ -499,49 +467,28 @@ fn process_command(command: Commands, client: TCPClient) {
 fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient) {
     match command {
         MarketMakerCommands::Status => {
-            let response = send_request(
-                MarketMakerRequest::Status,
-                ResponseType::MarketMaker,
-                &client,
-            );
+            let response = send_request(MarketMakerRequest::Status, &client);
             println!("{}", response);
         }
         MarketMakerCommands::Start => {
-            let response = send_request(
-                SysStateRequest::StartMarketMaker,
-                ResponseType::System,
-                &client,
-            );
+            let response = send_request(SysStateRequest::StartMarketMaker, &client);
             println!("{}", response);
         }
         MarketMakerCommands::Stop => {
-            let response = send_request(
-                SysStateRequest::StopMarketMaker,
-                ResponseType::System,
-                &client,
-            );
+            let response = send_request(SysStateRequest::StopMarketMaker, &client);
             println!("{}", response);
         }
         MarketMakerCommands::UseWhitelist => {
-            let response = send_request(
-                MarketMakerRequest::UseWhitelist,
-                ResponseType::MarketMaker,
-                &client,
-            );
+            let response = send_request(MarketMakerRequest::UseWhitelist, &client);
             println!("{}", response);
         }
         MarketMakerCommands::ResetWhitelist => {
-            let response = send_request(
-                MarketMakerRequest::ResetWhitelist,
-                ResponseType::MarketMaker,
-                &client,
-            );
+            let response = send_request(MarketMakerRequest::ResetWhitelist, &client);
             println!("{}", response);
         }
         MarketMakerCommands::AddSupplier { peer_id } => {
             let response = send_request(
                 MarketMakerRequest::WhitelistSupplier { key: peer_id },
-                ResponseType::MarketMaker,
                 &client,
             );
             println!("{}", response);
@@ -549,7 +496,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
         MarketMakerCommands::RemoveSupplier { peer_id } => {
             let response = send_request(
                 MarketMakerRequest::UnwhitelistSupplier { key: peer_id },
-                ResponseType::MarketMaker,
                 &client,
             );
             println!("{}", response);
@@ -557,7 +503,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
         MarketMakerCommands::AddConsumer { peer_id } => {
             let response = send_request(
                 MarketMakerRequest::WhitelistConsumer { key: peer_id },
-                ResponseType::MarketMaker,
                 &client,
             );
             println!("{}", response);
@@ -565,7 +510,6 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
         MarketMakerCommands::RemoveConsumer { peer_id } => {
             let response = send_request(
                 MarketMakerRequest::UnwhitelistConsumer { key: peer_id },
-                ResponseType::MarketMaker,
                 &client,
             );
             println!("{}", response);
@@ -576,7 +520,7 @@ fn process_market_maker_command(command: MarketMakerCommands, client: TCPClient)
 fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
     match command {
         SupplierCommands::Status => {
-            let response = send_request(SupplierRequest::Status, ResponseType::Supplier, &client);
+            let response = send_request(SupplierRequest::Status, &client);
             println!("{}", response);
         }
         SupplierCommands::Start {
@@ -592,22 +536,16 @@ fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
                     name: user,
                     secure_comms: secure,
                 },
-                ResponseType::System,
                 &client,
             );
             println!("{}", response);
         }
         SupplierCommands::Stop => {
-            let response =
-                send_request(SysStateRequest::StopSupplier, ResponseType::System, &client);
+            let response = send_request(SysStateRequest::StopSupplier, &client);
             println!("{}", response);
         }
         SupplierCommands::Supply { devices } => {
-            let response = send_request(
-                SupplierRequest::SupplyDevices { devices },
-                ResponseType::Supplier,
-                &client,
-            );
+            let response = send_request(SupplierRequest::SupplyDevices { devices }, &client);
             println!("{}", response);
         }
         SupplierCommands::Reclaim { device, force } => {
@@ -616,7 +554,6 @@ fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
                     device_id: device,
                     force,
                 },
-                ResponseType::Supplier,
                 &client,
             );
             println!("{}", response);
@@ -627,7 +564,7 @@ fn process_supplier_command(command: SupplierCommands, client: TCPClient) {
 fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
     match command {
         ConsumerCommands::Status => {
-            let response = send_request(ConsumerRequest::Status, ResponseType::Consumer, &client);
+            let response = send_request(ConsumerRequest::Status, &client);
             println!("{}", response);
         }
         ConsumerCommands::Start { remote, port, user } => {
@@ -637,14 +574,12 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                     mm_port: port,
                     name: user,
                 },
-                ResponseType::System,
                 &client,
             );
             println!("{}", response);
         }
         ConsumerCommands::Stop => {
-            let response =
-                send_request(SysStateRequest::StopConsumer, ResponseType::System, &client);
+            let response = send_request(SysStateRequest::StopConsumer, &client);
             println!("{}", response);
         }
         ConsumerCommands::Reserve { device, no_default } => {
@@ -653,7 +588,6 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                     device_id: device,
                     no_use: no_default,
                 },
-                ResponseType::Consumer,
                 &client,
             );
             println!("{}", response);
@@ -664,24 +598,15 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                     ConsumerRequest::ReleaseDevice {
                         device_id: device.as_ref().unwrap().to_string(),
                     },
-                    ResponseType::Consumer,
                     &client,
                 )
             } else {
-                send_request(
-                    ConsumerRequest::ReleaseAllDevices,
-                    ResponseType::Consumer,
-                    &client,
-                )
+                send_request(ConsumerRequest::ReleaseAllDevices, &client)
             };
             println!("{}", response);
         }
         ConsumerCommands::ListAvailable => {
-            let response = send_request(
-                ConsumerRequest::GetAvailableDevices,
-                ResponseType::Consumer,
-                &client,
-            );
+            let response = send_request(ConsumerRequest::GetAvailableDevices, &client);
             println!("{}", response);
         }
         ConsumerCommands::GetDevices {
@@ -719,15 +644,12 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                 filters.push(DeviceFilter::ConsumerNames(reserved_by));
             }
             let filter_vec = DeviceFilterVec { filters };
-            let response = send_request(
-                ConsumerRequest::GetDevicesByFilter { filter_vec },
-                ResponseType::Consumer,
-                &client,
-            );
+            let response =
+                send_request(ConsumerRequest::GetDevicesByFilter { filter_vec }, &client);
             println!("{}", response);
         }
         ConsumerCommands::ListReserved => {
-            let response = send_request(ConsumerRequest::Status, ResponseType::Consumer, &client);
+            let response = send_request(ConsumerRequest::Status, &client);
             match response {
                 Response::Consumer(ConsumerResponse::Status { state }) => {
                     let reserved_devices = state.devices;
@@ -754,11 +676,7 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
             }
         }
         ConsumerCommands::SetDefault { device } => {
-            let response = send_request(
-                ConsumerRequest::UseDevice { device_id: device },
-                ResponseType::Consumer,
-                &client,
-            );
+            let response = send_request(ConsumerRequest::UseDevice { device_id: device }, &client);
             println!("{}", response);
         }
         ConsumerCommands::Scrcpy { device, args } => {
@@ -768,26 +686,18 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
                     device_id: device,
                     scrcpy_args,
                 },
-                ResponseType::Consumer,
                 &client,
             );
             println!("{}", response);
         }
         ConsumerCommands::SetScrcpyArgs(args) => {
             let scrcpy_args = adb_utils::get_scrcpy_args(args);
-            let response = send_request(
-                ConsumerRequest::SetScrCpyDefaults { scrcpy_args },
-                ResponseType::Consumer,
-                &client,
-            );
+            let response =
+                send_request(ConsumerRequest::SetScrCpyDefaults { scrcpy_args }, &client);
             println!("{}", response);
         }
         ConsumerCommands::GetScrcpyArgs => {
-            let response = send_request(
-                ConsumerRequest::GetScrCpyDefaults,
-                ResponseType::Consumer,
-                &client,
-            );
+            let response = send_request(ConsumerRequest::GetScrCpyDefaults, &client);
             println!("{}", response);
         }
         ConsumerCommands::ScrcpyShortcuts => {
