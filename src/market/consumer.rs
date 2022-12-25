@@ -1134,20 +1134,19 @@ impl Consumer {
             }
             ConsumerRequest::StopScrCpy { device_id } if peer_addr.ip().is_loopback() => {
                 if !ConsumerState::is_device_reserved(&device_id) {
-                    return serde_json::to_string(&ConsumerResponse::StopScrCpyFailure {
+                    return ConsumerResponse::StopScrCpyFailure {
                         reason: "Cannot stop mirroring for a device that is not reserved."
                             .to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 if let Err(e) = Consumer::stop_scrcpy(&device_id) {
-                    serde_json::to_string(&ConsumerResponse::StopScrCpyFailure {
+                    ConsumerResponse::StopScrCpyFailure {
                         reason: format!("Could not stop scrcpy: {}", e),
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 } else {
-                    serde_json::to_string(&ConsumerResponse::StopScrCpySuccess { device_id })
-                        .unwrap()
+                    ConsumerResponse::StopScrCpySuccess { device_id }.to_json()
                 }
             }
 

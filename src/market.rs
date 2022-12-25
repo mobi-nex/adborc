@@ -16,7 +16,6 @@ use blake2::{digest::consts::U16, Blake2s, Digest};
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
-use serde_json;
 use snow::Keypair;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter, Write};

@@ -697,14 +697,7 @@ fn process_consumer_command(command: ConsumerCommands, client: TCPClient) {
             println!("{}", response);
         }
         ConsumerCommands::StopScrcpy { device } => {
-            let request = serde_json::to_string(&Request::Consumer(ConsumerRequest::StopScrCpy {
-                device_id: device,
-            }))
-            .unwrap();
-            let response = client
-                .send(&request, None)
-                .unwrap_or_else(|e| map_processing_error(e, ResponseType::Consumer));
-            let response = serde_json::from_str::<ConsumerResponse>(&response).unwrap();
+            let response = send_request(ConsumerRequest::StopScrCpy { device_id: device }, &client);
             println!("{}", response);
         }
         ConsumerCommands::SetScrcpyArgs(args) => {

@@ -4,6 +4,7 @@ use super::{supplier::SupplierStateMin, DeviceFilterVec, *};
 use consumer::ConsumerStateMin;
 use marketmaker::MarketMakerMinState;
 use serde::Serialize;
+use serde_json;
 use std::str::FromStr;
 
 /// Wraps the response in the required `Response` enum and serializes it.
