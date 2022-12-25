@@ -61,7 +61,7 @@
 //! # use std::thread;
 //! use adborc::{
 //!     market::{SysState, request::
-//!             {Request, Response, SysStateRequest, SysStateResponse}},
+//!             {Request, ToJson, SysStateRequest, SysStateResponse}},
 //!     net::TCPClient,
 //!     util::SysStateDefaultConfig
 //! };
@@ -72,10 +72,10 @@
 //!
 //! let client = TCPClient::new("localhost", SysStateDefaultConfig::BIND_PORT).unwrap();
 //! // Construct a request to start the marketmaker.
-//! let request = Request::System(SysStateRequest::StartMarketMaker);
-//! let response = client.send_request(&request, None).unwrap();
-//! let expected_response = Response::System(SysStateResponse::StartMarketMakerSuccess);
-//! assert_eq!(response, serde_json::to_string(&expected_response).unwrap());
+//! let request = SysStateRequest::StartMarketMaker;
+//! let response = client.send_request(request, None).unwrap();
+//! let expected_response = SysStateResponse::StartMarketMakerSuccess;
+//! assert_eq!(response, expected_response.to_json());
 //! ```
 //!
 
