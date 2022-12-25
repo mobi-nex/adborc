@@ -6,10 +6,12 @@ use marketmaker::MarketMakerMinState;
 use serde::Serialize;
 use std::str::FromStr;
 
+/// Wraps the request in the required `Request` enum.
 pub trait GetRequest {
     fn get_request(self) -> Request;
 }
 
+/// Wraps the response in the required `Response` enum and serializes it.
 pub trait ToJson {
     fn to_json(self) -> String;
 }
@@ -23,6 +25,12 @@ pub enum Request {
     Supplier(SupplierRequest),
     Consumer(ConsumerRequest),
 }
+
+// impl GetRequest for Request {
+//     fn get_request(self) -> Request {
+//         self
+//     }
+// }
 
 /// Wrapper enum for all the possible responses that can be sent from the
 /// network node.

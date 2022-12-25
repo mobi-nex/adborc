@@ -20,7 +20,7 @@ use tokio::{
     time::timeout,
 };
 
-use crate::market::{request::Request, Key, SystemKeypair};
+use crate::market::{request::GetRequest, Key, SystemKeypair};
 use crate::noise::Noise;
 use crate::util::{ADB_KILL_SERVER_COMMAND, CONNECTION_TIMEOUT};
 
@@ -118,23 +118,27 @@ impl TCPClient {
 
     /// Send a [`crate::market::request::Request`] to the server with the given timeout and
     /// return the response, if received.
-    pub fn send_request(
-        &self,
-        request: &Request,
-        timeout_in_sec: Option<u64>,
-    ) -> io::Result<String> {
+    pub fn send_request<T>(&self, request: T, timeout_in_sec: Option<u64>) -> io::Result<String>
+    where
+        T: GetRequest,
+    {
+        let request = request.get_request();
         // Unwrapping is safe here because we are using a known enum variant
         // which is guaranteed to be serializable.
-        let request = serde_json::to_string(request).unwrap();
+        let request = serde_json::to_string(&request).unwrap();
         self.send(request.as_str(), timeout_in_sec)
     }
 
     /// Send a [`crate::market::request::Request`] to the server without waiting for a response.
     #[tokio::main]
-    pub async fn send_no_wait(&self, data: &Request) {
+    pub async fn send_no_wait<T>(&self, data: T)
+    where
+        T: GetRequest,
+    {
+        let request = data.get_request();
         // Unwrapping is safe here because we are using a known enum variant
         // which is guaranteed to be serializable.
-        let data = serde_json::to_string(data).unwrap();
+        let data = serde_json::to_string(&request).unwrap();
         debug!(
             "Sending data: {}\t\tto host: {}\tat port: {}",
             data, self.host, self.port
@@ -1003,18 +1007,24 @@ mod tests {
         tcp_client.send(data, timeout)
     }
 
-    fn tcp_client_init_send_no_wait(host: &str, port: u16, data: &Request) -> io::Result<()> {
+    fn tcp_client_init_send_no_wait<T>(host: &str, port: u16, data: T) -> io::Result<()>
+    where
+        T: GetRequest,
+    {
         let tcp_client = TCPClient::new(host, port)?;
         tcp_client.send_no_wait(data);
         Ok(())
     }
 
-    fn tcp_client_init_send_request(
+    fn tcp_client_init_send_request<T>(
         host: &str,
         port: u16,
-        data: &Request,
+        data: T,
         timeout: Option<u64>,
-    ) -> io::Result<String> {
+    ) -> io::Result<String>
+    where
+        T: GetRequest,
+    {
         let tcp_client = TCPClient::new(host, port)?;
         tcp_client.send_request(data, timeout)
     }
@@ -1105,8 +1115,8 @@ mod tests {
         task::spawn(async move { listener.start().await.unwrap() });
 
         let result = task::spawn_blocking(move || {
-            let request = Request::System(SysStateRequest::GetState);
-            tcp_client_init_send_no_wait("localhost", listen_port, &request)
+            let request = SysStateRequest::GetState;
+            tcp_client_init_send_no_wait("localhost", listen_port, request)
         })
         .await
         .unwrap();
@@ -1126,8 +1136,8 @@ mod tests {
         task::spawn(async move { listener.start().await.unwrap() });
 
         let result = task::spawn_blocking(move || {
-            let request = Request::System(SysStateRequest::GetState);
-            tcp_client_init_send_request("localhost", listen_port, &request, Some(5))
+            let request = SysStateRequest::GetState;
+            tcp_client_init_send_request("localhost", listen_port, request, Some(5))
         })
         .await
         .unwrap();
@@ -1153,8 +1163,8 @@ mod tests {
         task::spawn(async move { listener.start().await.unwrap() });
 
         let result = task::spawn_blocking(move || {
-            let request = Request::System(SysStateRequest::GetState);
-            tcp_client_init_send_request("localhost", listen_port, &request, None)
+            let request = SysStateRequest::GetState;
+            tcp_client_init_send_request("localhost", listen_port, request, None)
         })
         .await
         .unwrap();
@@ -1201,8 +1211,8 @@ mod tests {
         let mut listener = MockEncryptedListener::new(ServerSpec::host(), listen_port);
         task::spawn(async move { listener.start().await.unwrap() });
         let result = task::spawn_blocking(move || {
-            let request = Request::System(SysStateRequest::GetState);
-            tcp_client_init_send_no_wait("localhost", listen_port, &request)
+            let request = SysStateRequest::GetState;
+            tcp_client_init_send_no_wait("localhost", listen_port, request)
         })
         .await
         .unwrap();
@@ -1219,8 +1229,8 @@ mod tests {
         let mut listener = MockEncryptedListener::new(ServerSpec::host(), listen_port);
         task::spawn(async move { listener.start().await.unwrap() });
         let result = task::spawn_blocking(move || {
-            let request = Request::System(SysStateRequest::GetState);
-            tcp_client_init_send_request("localhost", listen_port, &request, Some(5))
+            let request = SysStateRequest::GetState;
+            tcp_client_init_send_request("localhost", listen_port, request, Some(5))
         })
         .await
         .unwrap();
@@ -1243,8 +1253,8 @@ mod tests {
         let mut listener = MockEncryptedListener::new(ServerSpec::host(), listen_port);
         task::spawn(async move { listener.start().await.unwrap() });
         let result = task::spawn_blocking(move || {
-            let request = Request::System(SysStateRequest::GetState);
-            tcp_client_init_send_request("localhost", listen_port, &request, None)
+            let request = SysStateRequest::GetState;
+            tcp_client_init_send_request("localhost", listen_port, request, None)
         })
         .await
         .unwrap();

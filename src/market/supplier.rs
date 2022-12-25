@@ -4,9 +4,7 @@ mod tests;
 use super::*;
 use crate::util::adb_utils;
 use portpicker;
-use request::{
-    MarketMakerRequest, MarketMakerResponse, Request, SupplierRequest, SupplierResponse,
-};
+use request::{MarketMakerRequest, MarketMakerResponse, SupplierRequest, SupplierResponse};
 use std::default::Default;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -389,10 +387,10 @@ impl Supplier {
         // Unwrapping of serialing/deserializing is safe, because we use request/response objects
         // that are known to be serializable/deserializable.
         let client = TCPClient::new(&mm_host, mm_port)?;
-        let supply_request = Request::MarketMaker(MarketMakerRequest::SupplierConnect {
+        let supply_request = MarketMakerRequest::SupplierConnect {
             supplier: supplier_spec,
-        });
-        let response = client.send_request(&supply_request, None)?;
+        };
+        let response = client.send_request(supply_request, None)?;
 
         let response = MarketMakerResponse::from_str(&response).unwrap();
         if let MarketMakerResponse::SupplierConnected {
@@ -441,8 +439,8 @@ impl Supplier {
 
             let mm_addr = mm_addr.unwrap();
             let client = TCPClient::from(mm_addr);
-            let heartbeat_request = Request::MarketMaker(MarketMakerRequest::SupplierHeartBeat);
-            let response = match client.send_request(&heartbeat_request, None) {
+            let heartbeat_request = MarketMakerRequest::SupplierHeartBeat;
+            let response = match client.send_request(heartbeat_request, None) {
                 Ok(response) => response,
                 Err(e) => {
                     error!("Failed to send heartbeat to Market Maker: {}", e);
@@ -472,8 +470,8 @@ impl Supplier {
         let mm_addr = SupplierState::get_addr();
         if let Some(addr) = mm_addr {
             let client = TCPClient::from(addr);
-            let disconnect_request = Request::MarketMaker(MarketMakerRequest::SupplierDisconnect);
-            client.send_no_wait(&disconnect_request);
+            let disconnect_request = MarketMakerRequest::SupplierDisconnect;
+            client.send_no_wait(disconnect_request);
         }
         SupplierState::reset_state();
     }
@@ -540,7 +538,7 @@ impl Supplier {
 
         // Unwrapping of serialing/deserializing is safe, because we use request/response objects
         // that are known to be serializable/deserializable.
-        let request = Request::MarketMaker(MarketMakerRequest::SupplyDevices { devices });
+        let request = MarketMakerRequest::SupplyDevices { devices };
         let mm_addr = SupplierState::get_addr();
         if mm_addr.is_none() {
             error!("Market Maker address is not set. Skipping supply devices.");
@@ -556,7 +554,7 @@ impl Supplier {
 
         let mm_addr = mm_addr.unwrap();
         let client = TCPClient::from(mm_addr);
-        let response = client.send_request(&request, None);
+        let response = client.send_request(request, None);
         if response.is_err() {
             error!(
                 "Failed to send SupplyDevices request to Market Maker: {}",
@@ -602,7 +600,7 @@ impl Supplier {
 
     /// Reclaim device from the Market Maker.
     fn reclaim_device(device_id: String, force: bool) -> String {
-        let request = Request::MarketMaker(MarketMakerRequest::ReclaimDevice { device_id, force });
+        let request = MarketMakerRequest::ReclaimDevice { device_id, force };
         let mm_addr = SupplierState::get_addr();
         if mm_addr.is_none() {
             error!("Market Maker address is not set. Skipping reclaim device.");
@@ -614,7 +612,7 @@ impl Supplier {
 
         let mm_addr = mm_addr.unwrap();
         let client = TCPClient::from(mm_addr);
-        let response = client.send_request(&request, None);
+        let response = client.send_request(request, None);
         if response.is_err() {
             error!(
                 "Failed to send ReclaimDevice request to Market Maker: {}",

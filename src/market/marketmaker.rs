@@ -590,10 +590,8 @@ impl MarketMaker {
                             if let Some(port) = port {
                                 if let Ok(client) = TCPClient::new(host.as_str(), port) {
                                     let request =
-                                        Request::Consumer(ConsumerRequest::SupplierDisconnected {
-                                            device_id,
-                                        });
-                                    client.send_no_wait(&request);
+                                        ConsumerRequest::SupplierDisconnected { device_id };
+                                    client.send_no_wait(request);
                                 }
                             }
                         }
@@ -618,10 +616,10 @@ impl MarketMaker {
             let port = MarketMakerState::get_consumer_port(&consumer_pub_key);
             if let Some(port) = port {
                 if let Ok(client) = TCPClient::new(host.as_str(), port) {
-                    let request = Request::Consumer(ConsumerRequest::SupplierDisconnected {
+                    let request = ConsumerRequest::SupplierDisconnected {
                         device_id: device_id.clone(),
-                    });
-                    client.send_no_wait(&request);
+                    };
+                    client.send_no_wait(request);
                 }
             }
             MarketMaker::release_device(&device_id);
@@ -649,10 +647,10 @@ impl MarketMaker {
             let host = supplier.bind_host.as_str();
             let port = supplier.bind_port;
             if let Ok(client) = TCPClient::new(host, port) {
-                let request = Request::Supplier(SupplierRequest::StopSecureTunnel {
+                let request = SupplierRequest::StopSecureTunnel {
                     device_id: device.device_id,
-                });
-                client.send_no_wait(&request);
+                };
+                client.send_no_wait(request);
             }
         }
     }
@@ -676,8 +674,8 @@ impl MarketMaker {
             let host = supplier.0.as_str();
             let port = supplier.1;
             if let Ok(client) = TCPClient::new(host, port) {
-                let request = Request::System(SysStateRequest::SupplierMarketMakerTerminating);
-                client.send_no_wait(&request);
+                let request = SysStateRequest::SupplierMarketMakerTerminating;
+                client.send_no_wait(request);
             }
         }
 
@@ -685,8 +683,8 @@ impl MarketMaker {
             let host = consumer.0.as_str();
             let port = consumer.1;
             if let Ok(client) = TCPClient::new(host, port) {
-                let request = Request::System(SysStateRequest::ConsumerMarketMakerTerminating);
-                client.send_no_wait(&request);
+                let request = SysStateRequest::ConsumerMarketMakerTerminating;
+                client.send_no_wait(request);
             }
         }
         thread::sleep(Duration::from_millis(1000));
@@ -886,10 +884,10 @@ impl MarketMaker {
                     let host = consumer.bind_host.as_str();
                     let port = consumer.bind_port;
                     if let Ok(client) = TCPClient::new(host, port) {
-                        let request = Request::Consumer(ConsumerRequest::SupplierDisconnected {
+                        let request = ConsumerRequest::SupplierDisconnected {
                             device_id: device_id.clone(),
-                        });
-                        client.send_no_wait(&request);
+                        };
+                        client.send_no_wait(request);
                     }
                 }
 
@@ -914,11 +912,8 @@ impl MarketMaker {
                         let port = MarketMakerState::get_consumer_port(&consumer_pub_key);
                         if let Some(port) = port {
                             if let Ok(client) = TCPClient::new(host.as_str(), port) {
-                                let request =
-                                    Request::Consumer(ConsumerRequest::SupplierDisconnected {
-                                        device_id,
-                                    });
-                                client.send_no_wait(&request);
+                                let request = ConsumerRequest::SupplierDisconnected { device_id };
+                                client.send_no_wait(request);
                             }
                         }
                     }
@@ -1059,12 +1054,12 @@ impl MarketMaker {
                     let host = supplier.bind_host.as_str();
                     let port = supplier.bind_port;
                     if let Ok(client) = TCPClient::new(host, port) {
-                        let request = Request::Supplier(SupplierRequest::StartSecureTunnel {
+                        let request = SupplierRequest::StartSecureTunnel {
                             device_id: device.device_id.clone(),
                             port: device.available_at_port,
                             pub_key: peer_id_str.clone(),
-                        });
-                        let response = client.send_request(&request, None);
+                        };
+                        let response = client.send_request(request, None);
                         if response.is_err() {
                             return MarketMakerResponse::DeviceNotReserved {
                                 reason: "Could not connect to supplier".to_string(),
@@ -1154,14 +1149,14 @@ impl MarketMaker {
                     let host = supplier.bind_host.as_str();
                     let supplier_port = supplier.bind_port;
                     if let Ok(client) = TCPClient::new(host, supplier_port) {
-                        let request = Request::Supplier(SupplierRequest::StartScrcpyTunnel {
+                        let request = SupplierRequest::StartScrcpyTunnel {
                             device_id,
                             port,
                             peer_id: peer_id_str.clone(),
                             consumer_host,
                             scrcpy_port,
-                        });
-                        let response = client.send_request(&request, None);
+                        };
+                        let response = client.send_request(request, None);
                         if response.is_err() {
                             return MarketMakerResponse::ScrcpyTunnelFailure {
                                 reason: "Could not connect to supplier".to_string(),

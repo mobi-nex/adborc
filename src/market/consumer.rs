@@ -4,9 +4,7 @@ mod tests;
 use super::*;
 use crate::util::adb_utils::ScrCpyArgs;
 use portpicker;
-use request::{
-    ConsumerRequest, ConsumerResponse, MarketMakerRequest, MarketMakerResponse, Request,
-};
+use request::{ConsumerRequest, ConsumerResponse, MarketMakerRequest, MarketMakerResponse};
 use std::default::Default;
 use std::io::{BufRead, BufReader};
 use std::process::Child;
@@ -384,10 +382,10 @@ impl Consumer {
 
         let client = TCPClient::new(mm_host.as_str(), mm_port)?;
 
-        let connect_request = Request::MarketMaker(MarketMakerRequest::ConsumerConnect {
+        let connect_request = MarketMakerRequest::ConsumerConnect {
             consumer: consumer_spec,
-        });
-        let response = client.send_request(&connect_request, None)?;
+        };
+        let response = client.send_request(connect_request, None)?;
         let response = MarketMakerResponse::from_str(&response).unwrap();
         if let MarketMakerResponse::ConsumerConnected {
             consumer: consumer_spec,
@@ -432,8 +430,8 @@ impl Consumer {
             }
             let mm_addr = mm_addr.unwrap();
             let client = TCPClient::from(mm_addr);
-            let heartbeat_request = Request::MarketMaker(MarketMakerRequest::ConsumerHeartBeat);
-            let response = match client.send_request(&heartbeat_request, None) {
+            let heartbeat_request = MarketMakerRequest::ConsumerHeartBeat;
+            let response = match client.send_request(heartbeat_request, None) {
                 Ok(response) => response,
                 Err(e) => {
                     error!("Failed to send heartbeat to Market Maker: {}", e);
@@ -460,8 +458,8 @@ impl Consumer {
         let mm_addr = ConsumerState::get_addr();
         if let Some(addr) = mm_addr {
             let client = TCPClient::from(addr);
-            let disconnect_request = Request::MarketMaker(MarketMakerRequest::ConsumerDisconnect);
-            client.send_no_wait(&disconnect_request);
+            let disconnect_request = MarketMakerRequest::ConsumerDisconnect;
+            client.send_no_wait(disconnect_request);
         }
         ConsumerState::reset_state();
     }
@@ -745,12 +743,12 @@ impl Consumer {
             portforwarder.forward()?;
             portforwarder
         };
-        let request = Request::MarketMaker(MarketMakerRequest::StartScrcpyTunnel {
+        let request = MarketMakerRequest::StartScrcpyTunnel {
             device_id: device_id.to_string(),
             supplier_id: supplier_id.to_string(),
             port,
             scrcpy_port,
-        });
+        };
         let mm_addr = ConsumerState::get_addr();
         if mm_addr.is_none() {
             error!("Could not get marketmaker address.");
@@ -761,7 +759,7 @@ impl Consumer {
         }
         let mm_addr = mm_addr.unwrap();
         let client = TCPClient::from(mm_addr);
-        let response = client.send_request(&request, None)?;
+        let response = client.send_request(request, None)?;
         let response = MarketMakerResponse::from_str(&response).map_err(|e| {
             error!("Error parsing response from Market Maker: {}", e);
             io::Error::new(io::ErrorKind::Other, e.to_string())
@@ -807,7 +805,7 @@ impl Consumer {
             }
             ConsumerRequest::GetAvailableDevices if peer_addr.ip().is_loopback() => {
                 // Get available devices from the market maker.
-                let data = Request::MarketMaker(MarketMakerRequest::GetAvailableDevices);
+                let data = MarketMakerRequest::GetAvailableDevices;
                 let mm_addr = ConsumerState::get_addr();
 
                 if mm_addr.is_none() {
@@ -819,7 +817,7 @@ impl Consumer {
                 }
                 let mm_addr = mm_addr.unwrap();
                 let client = TCPClient::from(mm_addr);
-                let response = client.send_request(&data, None);
+                let response = client.send_request(data, None);
                 if response.is_err() {
                     return ConsumerResponse::ErrorGettingDevices {
                         reason: format!(
@@ -846,8 +844,7 @@ impl Consumer {
             }
             ConsumerRequest::GetDevicesByFilter { filter_vec } if peer_addr.ip().is_loopback() => {
                 // Get available devices from the market maker.
-                let data =
-                    Request::MarketMaker(MarketMakerRequest::GetDevicesByFilter { filter_vec });
+                let data = MarketMakerRequest::GetDevicesByFilter { filter_vec };
                 let mm_addr = ConsumerState::get_addr();
 
                 if mm_addr.is_none() {
@@ -859,7 +856,7 @@ impl Consumer {
                 }
                 let mm_addr = mm_addr.unwrap();
                 let client = TCPClient::from(mm_addr);
-                let response = client.send_request(&data, None);
+                let response = client.send_request(data, None);
                 if response.is_err() {
                     return ConsumerResponse::ErrorGettingDevices {
                         reason: format!(
@@ -893,9 +890,9 @@ impl Consumer {
                 if peer_addr.ip().is_loopback() =>
             {
                 // Reserve a device from the market maker.
-                let data = Request::MarketMaker(MarketMakerRequest::ReserveDevice {
+                let data = MarketMakerRequest::ReserveDevice {
                     device_id: device_id.clone(),
-                });
+                };
                 let mm_addr = ConsumerState::get_addr();
                 if mm_addr.is_none() {
                     error!("Could not get marketmaker address.");
@@ -906,7 +903,7 @@ impl Consumer {
                 }
                 let mm_addr = mm_addr.unwrap();
                 let client = TCPClient::from(mm_addr);
-                let response = client.send_request(&data, None);
+                let response = client.send_request(data, None);
                 if response.is_err() {
                     return ConsumerResponse::DeviceNotReserved {
                         reason: format!(
@@ -940,11 +937,9 @@ impl Consumer {
                             no_use,
                         ) {
                             // Failed to reserve device. Inform the market maker to release the device.
-                            let data = Request::MarketMaker(MarketMakerRequest::ReleaseDevice {
-                                device_id,
-                            });
+                            let data = MarketMakerRequest::ReleaseDevice { device_id };
 
-                            client.send_no_wait(&data);
+                            client.send_no_wait(data);
                             // Return error back to client.
                             ConsumerResponse::DeviceNotReserved {
                                 reason: format!("Could not reserve device: {}", e),
@@ -971,9 +966,9 @@ impl Consumer {
                     .to_json();
                 }
                 // Send release request to the marketmaker device from the market maker.
-                let data = Request::MarketMaker(MarketMakerRequest::ReleaseDevice {
+                let data = MarketMakerRequest::ReleaseDevice {
                     device_id: device_id.clone(),
-                });
+                };
                 let mm_addr = ConsumerState::get_addr();
                 if mm_addr.is_none() {
                     error!("Could not get marketmaker address.");
@@ -985,7 +980,7 @@ impl Consumer {
                 let mm_addr = mm_addr.unwrap();
                 let client = TCPClient::from(mm_addr);
 
-                let response = client.send_request(&data, None);
+                let response = client.send_request(data, None);
                 if response.is_err() {
                     return ConsumerResponse::DeviceNotReleased {
                         reason: format!(
@@ -1025,7 +1020,7 @@ impl Consumer {
                     }
                     .to_json();
                 }
-                let data = Request::MarketMaker(MarketMakerRequest::ReleaseAllDevices);
+                let data = MarketMakerRequest::ReleaseAllDevices;
                 let mm_addr = ConsumerState::get_addr();
                 if mm_addr.is_none() {
                     error!("Could not get marketmaker address.");
@@ -1037,7 +1032,7 @@ impl Consumer {
                 let mm_addr = mm_addr.unwrap();
                 let client = TCPClient::from(mm_addr);
 
-                let response = client.send_request(&data, None);
+                let response = client.send_request(data, None);
                 if response.is_err() {
                     return ConsumerResponse::AllDeviceReleaseFailure {
                         reason: format!(

@@ -1145,7 +1145,7 @@ mod tests {
     use super::*;
     use crate::net::TCPClient;
     use crate::util::{test_with_logs, SysStateDefaultConfig};
-    use request::{MarketMakerRequest, MarketMakerResponse, Request};
+    use request::{MarketMakerRequest, MarketMakerResponse};
     use serial_test::serial;
 
     #[test]
@@ -1159,24 +1159,24 @@ mod tests {
 
         let client = TCPClient::new("localhost", SysStateDefaultConfig::BIND_PORT).unwrap();
 
-        let request = Request::System(SysStateRequest::GetState);
-        let response = client.send_request(&request, None).unwrap();
+        let request = SysStateRequest::GetState;
+        let response = client.send_request(request, None).unwrap();
         let expected_response = SysStateResponse::CurrentSysState {
             state: SysStateMin::default(),
         }
         .to_json();
         assert_eq!(response, expected_response);
 
-        let request = Request::System(SysStateRequest::GetPeerId);
-        let response = client.send_request(&request, None).unwrap();
+        let request = SysStateRequest::GetPeerId;
+        let response = client.send_request(request, None).unwrap();
         let pub_key = SystemKeypair::get_public_key().map_or(String::new(), base64::encode);
         let expected_response = SysStateResponse::PeerId { peer_id: pub_key }.to_json();
         assert_eq!(response, expected_response);
 
         System::start_market_maker().unwrap();
 
-        let request = Request::MarketMaker(MarketMakerRequest::Test);
-        let response = client.send_request(&request, None).unwrap();
+        let request = MarketMakerRequest::Test;
+        let response = client.send_request(request, None).unwrap();
         let expected_response = MarketMakerResponse::Test.to_json();
         assert_eq!(response, expected_response);
 
