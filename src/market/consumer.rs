@@ -4,9 +4,7 @@ mod tests;
 use super::*;
 use crate::util::adb_utils::ScrCpyArgs;
 use portpicker;
-use request::{
-    ConsumerRequest, ConsumerResponse, MarketMakerRequest, MarketMakerResponse, Request,
-};
+use request::{ConsumerRequest, ConsumerResponse, MarketMakerRequest, MarketMakerResponse};
 use std::default::Default;
 use std::io::{BufRead, BufReader};
 use std::process::Child;
@@ -305,7 +303,7 @@ impl ConsumerState {
 }
 
 impl Display for ConsumerStateMin {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"Current Consumer Status:
@@ -322,7 +320,7 @@ impl Display for ConsumerStateMin {
 }
 
 impl Display for ConsumerState {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
             r"Current Consumer Status:
@@ -384,11 +382,11 @@ impl Consumer {
 
         let client = TCPClient::new(mm_host.as_str(), mm_port)?;
 
-        let connect_request = Request::MarketMaker(MarketMakerRequest::ConsumerConnect {
+        let connect_request = MarketMakerRequest::ConsumerConnect {
             consumer: consumer_spec,
-        });
-        let response = client.send_request(&connect_request, None)?;
-        let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+        };
+        let response = client.send_request(connect_request, None)?;
+        let response = MarketMakerResponse::from_str(&response).unwrap();
         if let MarketMakerResponse::ConsumerConnected {
             consumer: consumer_spec,
             pub_key,
@@ -432,9 +430,8 @@ impl Consumer {
             }
             let mm_addr = mm_addr.unwrap();
             let client = TCPClient::from(mm_addr);
-            let heartbeat_request = Request::MarketMaker(MarketMakerRequest::ConsumerHeartBeat);
-            let heartbeat_request = serde_json::to_string(&heartbeat_request).unwrap();
-            let response = match client.send(heartbeat_request.as_str(), None) {
+            let heartbeat_request = MarketMakerRequest::ConsumerHeartBeat;
+            let response = match client.send_request(heartbeat_request, None) {
                 Ok(response) => response,
                 Err(e) => {
                     error!("Failed to send heartbeat to Market Maker: {}", e);
@@ -442,7 +439,7 @@ impl Consumer {
                     break;
                 }
             };
-            let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+            let response = MarketMakerResponse::from_str(&response).unwrap();
             if let MarketMakerResponse::HeartBeatResponse = response {
                 debug!("Heartbeat sent successfully.");
             } else {
@@ -461,8 +458,8 @@ impl Consumer {
         let mm_addr = ConsumerState::get_addr();
         if let Some(addr) = mm_addr {
             let client = TCPClient::from(addr);
-            let disconnect_request = Request::MarketMaker(MarketMakerRequest::ConsumerDisconnect);
-            client.send_no_wait(&disconnect_request);
+            let disconnect_request = MarketMakerRequest::ConsumerDisconnect;
+            client.send_no_wait(disconnect_request);
         }
         ConsumerState::reset_state();
     }
@@ -746,12 +743,12 @@ impl Consumer {
             portforwarder.forward()?;
             portforwarder
         };
-        let request = Request::MarketMaker(MarketMakerRequest::StartScrcpyTunnel {
+        let request = MarketMakerRequest::StartScrcpyTunnel {
             device_id: device_id.to_string(),
             supplier_id: supplier_id.to_string(),
             port,
             scrcpy_port,
-        });
+        };
         let mm_addr = ConsumerState::get_addr();
         if mm_addr.is_none() {
             error!("Could not get marketmaker address.");
@@ -762,8 +759,11 @@ impl Consumer {
         }
         let mm_addr = mm_addr.unwrap();
         let client = TCPClient::from(mm_addr);
-        let response = client.send_request(&request, None)?;
-        let response = serde_json::from_str::<MarketMakerResponse>(&response)?;
+        let response = client.send_request(request, None)?;
+        let response = MarketMakerResponse::from_str(&response).map_err(|e| {
+            error!("Error parsing response from Market Maker: {}", e);
+            io::Error::new(io::ErrorKind::Other, e.to_string())
+        })?;
         match response {
             MarketMakerResponse::ScrcpyTunnelSuccess => Ok(portforwarder),
             MarketMakerResponse::ScrcpyTunnelFailure { reason } => {
@@ -798,127 +798,123 @@ impl Consumer {
         let is_market_maker = || ConsumerState::verify_market_maker(&peer_id);
         match request {
             // Client requests.
-            ConsumerRequest::Test => serde_json::to_string(&ConsumerResponse::Test).unwrap(),
+            ConsumerRequest::Test => ConsumerResponse::Test.to_json(),
             ConsumerRequest::Status if peer_addr.ip().is_loopback() => {
                 let state = ConsumerState::get_min_state();
-                serde_json::to_string(&ConsumerResponse::Status { state }).unwrap()
+                ConsumerResponse::Status { state }.to_json()
             }
             ConsumerRequest::GetAvailableDevices if peer_addr.ip().is_loopback() => {
                 // Get available devices from the market maker.
-                let data = Request::MarketMaker(MarketMakerRequest::GetAvailableDevices);
+                let data = MarketMakerRequest::GetAvailableDevices;
                 let mm_addr = ConsumerState::get_addr();
 
                 if mm_addr.is_none() {
                     error!("Could not get marketmaker address.");
-                    return serde_json::to_string(&ConsumerResponse::ErrorGettingDevices {
+                    return ConsumerResponse::ErrorGettingDevices {
                         reason: "Could not get marketmaker address.".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let mm_addr = mm_addr.unwrap();
                 let client = TCPClient::from(mm_addr);
-                let response = client.send_request(&data, None);
+                let response = client.send_request(data, None);
                 if response.is_err() {
-                    return serde_json::to_string(&ConsumerResponse::ErrorGettingDevices {
+                    return ConsumerResponse::ErrorGettingDevices {
                         reason: format!(
                             "Could not get available devices from Market Maker: {}",
                             response.err().unwrap()
                         ),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let response = response.unwrap();
-                let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+                let response = MarketMakerResponse::from_str(&response).unwrap();
                 match response {
                     MarketMakerResponse::AvailableDevices { devices } => {
-                        serde_json::to_string(&ConsumerResponse::AvailableDevices { devices })
-                            .unwrap()
+                        ConsumerResponse::AvailableDevices { devices }.to_json()
                     }
                     MarketMakerResponse::ErrorGettingDevices { reason } => {
-                        serde_json::to_string(&ConsumerResponse::ErrorGettingDevices { reason })
-                            .unwrap()
+                        ConsumerResponse::ErrorGettingDevices { reason }.to_json()
                     }
-                    _ => serde_json::to_string(&ConsumerResponse::InvalidRequest {
-                        request: serde_json::to_string(&response).unwrap(),
-                    })
-                    .unwrap(),
+                    _ => ConsumerResponse::InvalidRequest {
+                        request: response.to_json(),
+                    }
+                    .to_json(),
                 }
             }
             ConsumerRequest::GetDevicesByFilter { filter_vec } if peer_addr.ip().is_loopback() => {
                 // Get available devices from the market maker.
-                let data =
-                    Request::MarketMaker(MarketMakerRequest::GetDevicesByFilter { filter_vec });
+                let data = MarketMakerRequest::GetDevicesByFilter { filter_vec };
                 let mm_addr = ConsumerState::get_addr();
 
                 if mm_addr.is_none() {
                     error!("Could not get marketmaker address.");
-                    return serde_json::to_string(&ConsumerResponse::ErrorGettingDevices {
+                    return ConsumerResponse::ErrorGettingDevices {
                         reason: "Could not get marketmaker address.".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let mm_addr = mm_addr.unwrap();
                 let client = TCPClient::from(mm_addr);
-                let response = client.send_request(&data, None);
+                let response = client.send_request(data, None);
                 if response.is_err() {
-                    return serde_json::to_string(&ConsumerResponse::ErrorGettingDevices {
+                    return ConsumerResponse::ErrorGettingDevices {
                         reason: format!(
                             "Could not get available devices from Market Maker: {}",
                             response.err().unwrap()
                         ),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let response = response.unwrap();
-                let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+                let response = MarketMakerResponse::from_str(&response).unwrap();
                 match response {
                     MarketMakerResponse::DevicesByFilter {
                         devices,
                         filter_vec,
-                    } => serde_json::to_string(&ConsumerResponse::DevicesByFilter {
+                    } => ConsumerResponse::DevicesByFilter {
                         devices,
                         filter_vec,
-                    })
-                    .unwrap(),
-                    MarketMakerResponse::ErrorGettingDevices { reason } => {
-                        serde_json::to_string(&ConsumerResponse::ErrorGettingDevices { reason })
-                            .unwrap()
                     }
-                    _ => serde_json::to_string(&ConsumerResponse::InvalidRequest {
-                        request: serde_json::to_string(&response).unwrap(),
-                    })
-                    .unwrap(),
+                    .to_json(),
+                    MarketMakerResponse::ErrorGettingDevices { reason } => {
+                        ConsumerResponse::ErrorGettingDevices { reason }.to_json()
+                    }
+                    _ => ConsumerResponse::InvalidRequest {
+                        request: response.to_json(),
+                    }
+                    .to_json(),
                 }
             }
             ConsumerRequest::ReserveDevice { device_id, no_use }
                 if peer_addr.ip().is_loopback() =>
             {
                 // Reserve a device from the market maker.
-                let data = Request::MarketMaker(MarketMakerRequest::ReserveDevice {
+                let data = MarketMakerRequest::ReserveDevice {
                     device_id: device_id.clone(),
-                });
+                };
                 let mm_addr = ConsumerState::get_addr();
                 if mm_addr.is_none() {
                     error!("Could not get marketmaker address.");
-                    return serde_json::to_string(&ConsumerResponse::DeviceNotReserved {
+                    return ConsumerResponse::DeviceNotReserved {
                         reason: "Could not get marketmaker address.".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let mm_addr = mm_addr.unwrap();
                 let client = TCPClient::from(mm_addr);
-                let response = client.send_request(&data, None);
+                let response = client.send_request(data, None);
                 if response.is_err() {
-                    return serde_json::to_string(&ConsumerResponse::DeviceNotReserved {
+                    return ConsumerResponse::DeviceNotReserved {
                         reason: format!(
                             "Could not reserve device from Market Maker: {}",
                             response.err().unwrap()
                         ),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let response = response.unwrap();
-                let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+                let response = MarketMakerResponse::from_str(&response).unwrap();
                 match response {
                     MarketMakerResponse::DeviceReserved {
                         mut device,
@@ -941,65 +937,61 @@ impl Consumer {
                             no_use,
                         ) {
                             // Failed to reserve device. Inform the market maker to release the device.
-                            let data = Request::MarketMaker(MarketMakerRequest::ReleaseDevice {
-                                device_id,
-                            });
+                            let data = MarketMakerRequest::ReleaseDevice { device_id };
 
-                            client.send_no_wait(&data);
+                            client.send_no_wait(data);
                             // Return error back to client.
-                            serde_json::to_string(&ConsumerResponse::DeviceNotReserved {
+                            ConsumerResponse::DeviceNotReserved {
                                 reason: format!("Could not reserve device: {}", e),
-                            })
-                            .unwrap()
+                            }
+                            .to_json()
                         } else {
-                            serde_json::to_string(&ConsumerResponse::DeviceReserved { device })
-                                .unwrap()
+                            ConsumerResponse::DeviceReserved { device }.to_json()
                         }
                     }
                     MarketMakerResponse::DeviceNotReserved { reason } => {
-                        serde_json::to_string(&ConsumerResponse::DeviceNotReserved { reason })
-                            .unwrap()
+                        ConsumerResponse::DeviceNotReserved { reason }.to_json()
                     }
-                    _ => serde_json::to_string(&ConsumerResponse::InvalidRequest {
-                        request: serde_json::to_string(&response).unwrap(),
-                    })
-                    .unwrap(),
+                    _ => ConsumerResponse::InvalidRequest {
+                        request: response.to_json(),
+                    }
+                    .to_json(),
                 }
             }
             ConsumerRequest::ReleaseDevice { device_id } if peer_addr.ip().is_loopback() => {
                 if !ConsumerState::is_device_reserved(&device_id) {
-                    return serde_json::to_string(&ConsumerResponse::DeviceNotReleased {
+                    return ConsumerResponse::DeviceNotReleased {
                         reason: "Cannot release a device that is not reserved.".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 // Send release request to the marketmaker device from the market maker.
-                let data = Request::MarketMaker(MarketMakerRequest::ReleaseDevice {
+                let data = MarketMakerRequest::ReleaseDevice {
                     device_id: device_id.clone(),
-                });
+                };
                 let mm_addr = ConsumerState::get_addr();
                 if mm_addr.is_none() {
                     error!("Could not get marketmaker address.");
-                    return serde_json::to_string(&ConsumerResponse::DeviceNotReleased {
+                    return ConsumerResponse::DeviceNotReleased {
                         reason: "Could not get marketmaker address.".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let mm_addr = mm_addr.unwrap();
                 let client = TCPClient::from(mm_addr);
 
-                let response = client.send_request(&data, None);
+                let response = client.send_request(data, None);
                 if response.is_err() {
-                    return serde_json::to_string(&ConsumerResponse::DeviceNotReleased {
+                    return ConsumerResponse::DeviceNotReleased {
                         reason: format!(
                             "Could not release device from Market Maker: {}",
                             response.err().unwrap()
                         ),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let response = response.unwrap();
-                let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+                let response = MarketMakerResponse::from_str(&response).unwrap();
                 match response {
                     MarketMakerResponse::DeviceReleased => {
                         // Remove the port forwarder for the device.
@@ -1007,17 +999,15 @@ impl Consumer {
                         ConsumerState::remove_device(&device_id);
                         ScrCpyState::remove_portforwarder(&device_id);
                         // Return the response.
-                        serde_json::to_string(&ConsumerResponse::DeviceReleased { device_id })
-                            .unwrap()
+                        ConsumerResponse::DeviceReleased { device_id }.to_json()
                     }
                     MarketMakerResponse::DeviceNotReleased { reason } => {
-                        serde_json::to_string(&ConsumerResponse::DeviceNotReleased { reason })
-                            .unwrap()
+                        ConsumerResponse::DeviceNotReleased { reason }.to_json()
                     }
-                    _ => serde_json::to_string(&ConsumerResponse::DeviceNotReleased {
+                    _ => ConsumerResponse::DeviceNotReleased {
                         reason: "Unknown operation".to_string(),
-                    })
-                    .unwrap(),
+                    }
+                    .to_json(),
                 }
             }
 
@@ -1025,35 +1015,35 @@ impl Consumer {
                 // Send release request to the marketmaker.
                 let num_devices = ConsumerState::get_number_of_devices();
                 if num_devices == 0 {
-                    return serde_json::to_string(&ConsumerResponse::AllDeviceReleaseFailure {
+                    return ConsumerResponse::AllDeviceReleaseFailure {
                         reason: "No devices reserved.".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
-                let data = Request::MarketMaker(MarketMakerRequest::ReleaseAllDevices);
+                let data = MarketMakerRequest::ReleaseAllDevices;
                 let mm_addr = ConsumerState::get_addr();
                 if mm_addr.is_none() {
                     error!("Could not get marketmaker address.");
-                    return serde_json::to_string(&ConsumerResponse::AllDeviceReleaseFailure {
+                    return ConsumerResponse::AllDeviceReleaseFailure {
                         reason: "Could not get marketmaker address.".to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let mm_addr = mm_addr.unwrap();
                 let client = TCPClient::from(mm_addr);
 
-                let response = client.send_request(&data, None);
+                let response = client.send_request(data, None);
                 if response.is_err() {
-                    return serde_json::to_string(&ConsumerResponse::AllDeviceReleaseFailure {
+                    return ConsumerResponse::AllDeviceReleaseFailure {
                         reason: format!(
                             "Could not release device from Market Maker: {}",
                             response.err().unwrap()
                         ),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 let response = response.unwrap();
-                let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+                let response = MarketMakerResponse::from_str(&response).unwrap();
                 match response {
                     MarketMakerResponse::AllDeviceReleaseSuccess => {
                         // Remove the port forwarder for the device.
@@ -1062,28 +1052,26 @@ impl Consumer {
                         ScrCpyState::kill_all();
                         ScrCpyState::remove_all_port_forwarders();
                         // Return the response.
-                        serde_json::to_string(&ConsumerResponse::AllDeviceReleaseSuccess).unwrap()
+                        ConsumerResponse::AllDeviceReleaseSuccess.to_json()
                     }
                     MarketMakerResponse::AllDeviceReleaseFailure { reason } => {
-                        serde_json::to_string(&ConsumerResponse::AllDeviceReleaseFailure { reason })
-                            .unwrap()
+                        ConsumerResponse::AllDeviceReleaseFailure { reason }.to_json()
                     }
-                    _ => serde_json::to_string(&ConsumerResponse::AllDeviceReleaseFailure {
+                    _ => ConsumerResponse::AllDeviceReleaseFailure {
                         reason: "Unknown operation".to_string(),
-                    })
-                    .unwrap(),
+                    }
+                    .to_json(),
                 }
             }
             ConsumerRequest::UseDevice { device_id } => {
                 let result = Consumer::use_device(&device_id);
                 if let Err(e) = result {
-                    serde_json::to_string(&ConsumerResponse::UseDeviceFailure {
+                    ConsumerResponse::UseDeviceFailure {
                         reason: format!("{}", e),
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 } else {
-                    serde_json::to_string(&ConsumerResponse::UseDeviceSuccess { device_id })
-                        .unwrap()
+                    ConsumerResponse::UseDeviceSuccess { device_id }.to_json()
                 }
             }
 
@@ -1092,33 +1080,31 @@ impl Consumer {
                 scrcpy_args,
             } if peer_addr.ip().is_loopback() => {
                 if !ConsumerState::is_device_reserved(&device_id) {
-                    return serde_json::to_string(&ConsumerResponse::StartScrCpyFailure {
+                    return ConsumerResponse::StartScrCpyFailure {
                         reason: "Cannot start scrcpy for a device that is not reserved."
                             .to_string(),
-                    })
-                    .unwrap();
+                    }
+                    .to_json();
                 }
                 if let Err(e) = Consumer::start_scrcpy(&device_id, scrcpy_args) {
-                    serde_json::to_string(&ConsumerResponse::StartScrCpyFailure {
+                    ConsumerResponse::StartScrCpyFailure {
                         reason: format!("Could not start scrcpy: {}", e),
-                    })
-                    .unwrap()
+                    }
+                    .to_json()
                 } else {
-                    serde_json::to_string(&ConsumerResponse::StartScrCpySuccess { device_id })
-                        .unwrap()
+                    ConsumerResponse::StartScrCpySuccess { device_id }.to_json()
                 }
             }
 
             ConsumerRequest::SetScrCpyDefaults { scrcpy_args } if peer_addr.ip().is_loopback() => {
                 ConsumerState::set_scrcpy_defaults(scrcpy_args.iter());
 
-                serde_json::to_string(&ConsumerResponse::ScrCpyDefaultsSet { args: scrcpy_args })
-                    .unwrap()
+                ConsumerResponse::ScrCpyDefaultsSet { args: scrcpy_args }.to_json()
             }
 
             ConsumerRequest::GetScrCpyDefaults if peer_addr.ip().is_loopback() => {
                 let args = ConsumerState::get_scrcpy_args().into_iter().collect();
-                serde_json::to_string(&ConsumerResponse::ScrCpyDefaults { args }).unwrap()
+                ConsumerResponse::ScrCpyDefaults { args }.to_json()
             }
 
             // Requests from Market Maker.
@@ -1131,14 +1117,14 @@ impl Consumer {
                         ScrCpyState::remove_portforwarder(&device_id_clone);
                     }
                 });
-                serde_json::to_string(&ConsumerResponse::DeviceReleased { device_id }).unwrap()
+                ConsumerResponse::DeviceReleased { device_id }.to_json()
             }
             ConsumerRequest::MarketMakerTerminating if is_market_maker() => {
                 thread::spawn(Consumer::market_maker_terminate);
-                serde_json::to_string(&ConsumerResponse::TerminationAcknowledged).unwrap()
+                ConsumerResponse::TerminationAcknowledged.to_json()
             }
 
-            _ => serde_json::to_string(&ConsumerResponse::RequestNotAllowed).unwrap(),
+            _ => ConsumerResponse::RequestNotAllowed.to_json(),
         }
     }
 }

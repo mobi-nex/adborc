@@ -29,7 +29,7 @@ async fn test_status() {
         .await
         .unwrap();
 
-    let response = serde_json::from_str::<SupplierResponse>(&response).unwrap();
+    let response = SupplierResponse::from_str(&response).unwrap();
     match response {
         SupplierResponse::Status { state } => {
             let expected_state = SupplierStateMin {

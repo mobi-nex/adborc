@@ -3,6 +3,13 @@ use crate::util::adb_utils::ScrCpyArgs;
 use super::{supplier::SupplierStateMin, DeviceFilterVec, *};
 use consumer::ConsumerStateMin;
 use marketmaker::MarketMakerMinState;
+use serde::Serialize;
+use std::str::FromStr;
+
+/// Wraps the response in the required `Response` enum and serializes it.
+pub trait ToJson {
+    fn to_json(self) -> String;
+}
 
 /// Wrapper enum for all the possible requests that can be sent to the
 /// network node.
@@ -14,6 +21,60 @@ pub enum Request {
     Consumer(ConsumerRequest),
 }
 
+/// Wrapper enum for all the possible responses that can be sent from the
+/// network node.
+#[derive(Serialize, Deserialize)]
+pub enum Response {
+    System(SysStateResponse),
+    MarketMaker(MarketMakerResponse),
+    Supplier(SupplierResponse),
+    Consumer(ConsumerResponse),
+}
+
+impl Display for Response {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Response::System(response) => write!(f, "{}", response),
+            Response::MarketMaker(response) => write!(f, "{}", response),
+            Response::Supplier(response) => write!(f, "{}", response),
+            Response::Consumer(response) => write!(f, "{}", response),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseResponseError {
+    /// Failed to parse the string as a valid JSON `Response`.
+    BadResponse,
+    /// Failed to parse the Response JSON as a valid `SysStateResponse`.
+    BadSystemResponse,
+    /// Failed to parse the Response JSON as a valid `MarketMakerResponse`.
+    BadMarketMakerResponse,
+    /// Failed to parse the Response JSON as a valid `SupplierResponse`.
+    BadSupplierResponse,
+    /// Failed to parse the Response JSON as a valid `ConsumerResponse`.
+    BadConsumerResponse,
+}
+
+impl Display for ParseResponseError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ParseResponseError::BadResponse => write!(f, "Bad response"),
+            ParseResponseError::BadSystemResponse => {
+                write!(f, "Bad system response")
+            }
+            ParseResponseError::BadMarketMakerResponse => {
+                write!(f, "Bad market maker response")
+            }
+            ParseResponseError::BadSupplierResponse => {
+                write!(f, "Bad supplier response")
+            }
+            ParseResponseError::BadConsumerResponse => {
+                write!(f, "Bad consumer response")
+            }
+        }
+    }
+}
 /// List of valid requests for the SysState listener.
 /// These requests are usually sent to the SysState Listener
 /// from the local TCPClient.
@@ -124,7 +185,7 @@ pub enum SysStateResponse {
 }
 
 impl Display for SysStateResponse {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             SysStateResponse::CurrentSysState { state } => write!(f, "{}", state),
             SysStateResponse::PeerId { peer_id } => write!(f, "PeerId: {}", peer_id),
@@ -361,13 +422,10 @@ pub enum MarketMakerResponse {
     InvalidRequest {
         request: String,
     },
-    RequestProcessingError {
-        reason: String,
-    },
 }
 
 impl Display for MarketMakerResponse {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             MarketMakerResponse::Test => write!(f, "Test"),
             MarketMakerResponse::Status { state } => write!(f, "{}", state),
@@ -486,9 +544,6 @@ impl Display for MarketMakerResponse {
             MarketMakerResponse::InvalidRequest { request } => {
                 write!(f, "Invalid request: {}", request)
             }
-            MarketMakerResponse::RequestProcessingError { reason } => {
-                write!(f, "Error processing request: {}", reason)
-            }
         }
     }
 }
@@ -573,13 +628,10 @@ pub enum SupplierResponse {
     InvalidRequest {
         request: String,
     },
-    RequestProcessingError {
-        reason: String,
-    },
 }
 
 impl Display for SupplierResponse {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             SupplierResponse::Test => write!(f, "Test"),
             SupplierResponse::Status { state } => write!(f, "{}", state),
@@ -632,9 +684,6 @@ impl Display for SupplierResponse {
             SupplierResponse::RequestNotAllowed => write!(f, "Request not allowed"),
             SupplierResponse::InvalidRequest { request } => {
                 write!(f, "Invalid request: {}", request)
-            }
-            SupplierResponse::RequestProcessingError { reason } => {
-                write!(f, "Error processing request: {}", reason)
             }
         }
     }
@@ -734,13 +783,10 @@ pub enum ConsumerResponse {
     InvalidRequest {
         request: String,
     },
-    RequestProcessingError {
-        reason: String,
-    },
 }
 
 impl Display for ConsumerResponse {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ConsumerResponse::Test => write!(f, "Test"),
             ConsumerResponse::Status { state } => write!(f, "{}", state),
@@ -823,9 +869,123 @@ impl Display for ConsumerResponse {
             ConsumerResponse::InvalidRequest { request } => {
                 write!(f, "Invalid request: {}", request)
             }
-            ConsumerResponse::RequestProcessingError { reason } => {
-                write!(f, "Error processing request: {}", reason)
+        }
+    }
+}
+
+impl ToJson for SysStateRequest {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Request::System(self)).unwrap()
+    }
+}
+
+impl ToJson for MarketMakerRequest {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Request::MarketMaker(self)).unwrap()
+    }
+}
+
+impl ToJson for SupplierRequest {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Request::Supplier(self)).unwrap()
+    }
+}
+
+impl ToJson for ConsumerRequest {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Request::Consumer(self)).unwrap()
+    }
+}
+
+impl ToJson for SysStateResponse {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Response::System(self)).unwrap()
+    }
+}
+impl ToJson for MarketMakerResponse {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Response::MarketMaker(self)).unwrap()
+    }
+}
+impl ToJson for SupplierResponse {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Response::Supplier(self)).unwrap()
+    }
+}
+impl ToJson for ConsumerResponse {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Response::Consumer(self)).unwrap()
+    }
+}
+
+impl FromStr for Request {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
+impl FromStr for Response {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
+impl FromStr for SysStateResponse {
+    type Err = ParseResponseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(response) = Response::from_str(s) {
+            match response {
+                Response::System(r) => Ok(r),
+                _ => Err(ParseResponseError::BadSystemResponse),
             }
+        } else {
+            Err(ParseResponseError::BadResponse)
+        }
+    }
+}
+
+impl FromStr for MarketMakerResponse {
+    type Err = ParseResponseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(response) = Response::from_str(s) {
+            match response {
+                Response::MarketMaker(r) => Ok(r),
+                _ => Err(ParseResponseError::BadMarketMakerResponse),
+            }
+        } else {
+            Err(ParseResponseError::BadResponse)
+        }
+    }
+}
+
+impl FromStr for SupplierResponse {
+    type Err = ParseResponseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(response) = Response::from_str(s) {
+            match response {
+                Response::Supplier(r) => Ok(r),
+                _ => Err(ParseResponseError::BadSupplierResponse),
+            }
+        } else {
+            Err(ParseResponseError::BadResponse)
+        }
+    }
+}
+
+impl FromStr for ConsumerResponse {
+    type Err = ParseResponseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(response) = Response::from_str(s) {
+            match response {
+                Response::Consumer(r) => Ok(r),
+                _ => Err(ParseResponseError::BadConsumerResponse),
+            }
+        } else {
+            Err(ParseResponseError::BadResponse)
         }
     }
 }

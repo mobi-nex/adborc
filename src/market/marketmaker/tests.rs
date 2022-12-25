@@ -14,10 +14,10 @@ fn test_status_request() {
     let peer_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     let peer_id = Arc::new(Vec::new());
     let response = MarketMaker::process_request(request, peer_addr, peer_id);
-    let expected_response = serde_json::to_string(&MarketMakerResponse::Status {
+    let expected_response = MarketMakerResponse::Status {
         state: MarketMakerMinState::default(),
-    })
-    .unwrap();
+    }
+    .to_json();
     assert_eq!(response, expected_response);
 }
 
@@ -44,7 +44,7 @@ async fn test_supplier_connect() {
         task::spawn_blocking(move || MarketMaker::process_request(request, peer_addr, peer_id))
             .await
             .unwrap();
-    let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+    let response = MarketMakerResponse::from_str(&response).unwrap();
     match response {
         MarketMakerResponse::SupplierConnected { supplier, pub_key } => {
             assert_eq!(base64::decode(supplier.pub_key).unwrap(), peer_pub_key);
@@ -98,7 +98,7 @@ async fn test_supplier_connect_secure_mode() {
         task::spawn_blocking(move || MarketMaker::process_request(request, peer_addr, peer_id))
             .await
             .unwrap();
-    let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+    let response = MarketMakerResponse::from_str(&response).unwrap();
     match response {
         MarketMakerResponse::SupplierConnected { supplier, pub_key } => {
             assert_eq!(base64::decode(supplier.pub_key).unwrap(), peer_pub_key);
@@ -153,7 +153,7 @@ async fn test_supplier_connect_pub_key_mismatch() {
         task::spawn_blocking(move || MarketMaker::process_request(request, peer_addr, peer_id))
             .await
             .unwrap();
-    let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+    let response = MarketMakerResponse::from_str(&response).unwrap();
     match response {
         MarketMakerResponse::SupplierNotConnected { reason } => {
             assert_eq!(reason, "Public key does not match peer id");
@@ -193,7 +193,7 @@ async fn test_supplier_connect_already_connected() {
         task::spawn_blocking(move || MarketMaker::process_request(request, peer_addr, peer_id))
             .await
             .unwrap();
-    let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+    let response = MarketMakerResponse::from_str(&response).unwrap();
     match response {
         MarketMakerResponse::SupplierNotConnected { reason } => {
             assert_eq!(reason, "Already connected");
@@ -240,7 +240,7 @@ async fn test_supplier_connect_not_in_whitelist() {
         task::spawn_blocking(move || MarketMaker::process_request(request, peer_addr, peer_id))
             .await
             .unwrap();
-    let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+    let response = MarketMakerResponse::from_str(&response).unwrap();
     match response {
         MarketMakerResponse::SupplierNotConnected { reason } => {
             assert_eq!(reason, "Not in whitelist");
@@ -283,7 +283,7 @@ async fn test_consumer_connect() {
         task::spawn_blocking(move || MarketMaker::process_request(request, peer_addr, peer_id))
             .await
             .unwrap();
-    let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+    let response = MarketMakerResponse::from_str(&response).unwrap();
     match response {
         MarketMakerResponse::ConsumerConnected { consumer, pub_key } => {
             assert_eq!(base64::decode(consumer.pub_key).unwrap(), peer_pub_key);
@@ -335,7 +335,7 @@ async fn test_consumer_connect_pub_key_mismatch() {
         task::spawn_blocking(move || MarketMaker::process_request(request, peer_addr, peer_id))
             .await
             .unwrap();
-    let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+    let response = MarketMakerResponse::from_str(&response).unwrap();
     match response {
         MarketMakerResponse::ConsumerNotConnected { reason } => {
             assert_eq!(reason, "Public key does not match peer id");
@@ -375,7 +375,7 @@ async fn test_consumer_connect_already_connected() {
         task::spawn_blocking(move || MarketMaker::process_request(request, peer_addr, peer_id))
             .await
             .unwrap();
-    let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+    let response = MarketMakerResponse::from_str(&response).unwrap();
     match response {
         MarketMakerResponse::ConsumerNotConnected { reason } => {
             assert_eq!(reason, "Already connected");
@@ -422,7 +422,7 @@ async fn test_consumer_connect_not_in_whitelist() {
         task::spawn_blocking(move || MarketMaker::process_request(request, peer_addr, peer_id))
             .await
             .unwrap();
-    let response = serde_json::from_str::<MarketMakerResponse>(&response).unwrap();
+    let response = MarketMakerResponse::from_str(&response).unwrap();
     match response {
         MarketMakerResponse::ConsumerNotConnected { reason } => {
             assert_eq!(reason, "Not in whitelist");
