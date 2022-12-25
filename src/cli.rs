@@ -273,6 +273,8 @@ pub enum ConsumerCommands {
         args: ScrcpyCliArgs,
     },
     /// Stop device screen mirroring for a device.
+    /// Note: This doesn't work if the Consumer and Supplier are on the same machine.
+    ///       see: https://github.com/mobi-nex/adborc/issues/16 for more information. 
     StopScrcpy {
         /// `device_id` of the device to stop scrcpy for.
         #[clap(value_parser)]
