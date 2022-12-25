@@ -20,7 +20,7 @@ use tokio::{
     time::timeout,
 };
 
-use crate::market::{request::GetRequest, Key, SystemKeypair};
+use crate::market::{request::ToJson, Key, SystemKeypair};
 use crate::noise::Noise;
 use crate::util::{ADB_KILL_SERVER_COMMAND, CONNECTION_TIMEOUT};
 
@@ -120,12 +120,11 @@ impl TCPClient {
     /// return the response, if received.
     pub fn send_request<T>(&self, request: T, timeout_in_sec: Option<u64>) -> io::Result<String>
     where
-        T: GetRequest,
+        T: ToJson,
     {
-        let request = request.get_request();
         // Unwrapping is safe here because we are using a known enum variant
         // which is guaranteed to be serializable.
-        let request = serde_json::to_string(&request).unwrap();
+        let request = request.to_json();
         self.send(request.as_str(), timeout_in_sec)
     }
 
@@ -133,12 +132,11 @@ impl TCPClient {
     #[tokio::main]
     pub async fn send_no_wait<T>(&self, data: T)
     where
-        T: GetRequest,
+        T: ToJson,
     {
-        let request = data.get_request();
         // Unwrapping is safe here because we are using a known enum variant
         // which is guaranteed to be serializable.
-        let data = serde_json::to_string(&request).unwrap();
+        let data = data.to_json();
         debug!(
             "Sending data: {}\t\tto host: {}\tat port: {}",
             data, self.host, self.port
@@ -1009,7 +1007,7 @@ mod tests {
 
     fn tcp_client_init_send_no_wait<T>(host: &str, port: u16, data: T) -> io::Result<()>
     where
-        T: GetRequest,
+        T: ToJson,
     {
         let tcp_client = TCPClient::new(host, port)?;
         tcp_client.send_no_wait(data);
@@ -1023,7 +1021,7 @@ mod tests {
         timeout: Option<u64>,
     ) -> io::Result<String>
     where
-        T: GetRequest,
+        T: ToJson,
     {
         let tcp_client = TCPClient::new(host, port)?;
         tcp_client.send_request(data, timeout)

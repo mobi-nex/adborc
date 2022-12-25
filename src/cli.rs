@@ -6,7 +6,6 @@ use adborc::util::{
 };
 use clap::{Parser, Subcommand};
 use log::error;
-use serde::Serialize;
 use std::collections::HashSet;
 use std::io::{self, Error};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
@@ -325,7 +324,7 @@ fn map_processing_error(error: Error, res_type: ResponseType) -> String {
 
 fn send_request<T>(request: T, res_type: ResponseType, client: &TCPClient) -> Response
 where
-    T: GetRequest + Serialize,
+    T: ToJson,
 {
     let response = client
         .send_request(request, None)

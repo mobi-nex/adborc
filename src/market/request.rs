@@ -6,11 +6,6 @@ use marketmaker::MarketMakerMinState;
 use serde::Serialize;
 use std::str::FromStr;
 
-/// Wraps the request in the required `Request` enum.
-pub trait GetRequest {
-    fn get_request(self) -> Request;
-}
-
 /// Wraps the response in the required `Response` enum and serializes it.
 pub trait ToJson {
     fn to_json(self) -> String;
@@ -25,12 +20,6 @@ pub enum Request {
     Supplier(SupplierRequest),
     Consumer(ConsumerRequest),
 }
-
-// impl GetRequest for Request {
-//     fn get_request(self) -> Request {
-//         self
-//     }
-// }
 
 /// Wrapper enum for all the possible responses that can be sent from the
 /// network node.
@@ -902,27 +891,27 @@ impl Display for ConsumerResponse {
     }
 }
 
-impl GetRequest for SysStateRequest {
-    fn get_request(self) -> Request {
-        Request::System(self)
+impl ToJson for SysStateRequest {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Request::System(self)).unwrap()
     }
 }
 
-impl GetRequest for MarketMakerRequest {
-    fn get_request(self) -> Request {
-        Request::MarketMaker(self)
+impl ToJson for MarketMakerRequest {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Request::MarketMaker(self)).unwrap()
     }
 }
 
-impl GetRequest for SupplierRequest {
-    fn get_request(self) -> Request {
-        Request::Supplier(self)
+impl ToJson for SupplierRequest {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Request::Supplier(self)).unwrap()
     }
 }
 
-impl GetRequest for ConsumerRequest {
-    fn get_request(self) -> Request {
-        Request::Consumer(self)
+impl ToJson for ConsumerRequest {
+    fn to_json(self) -> String {
+        serde_json::to_string(&Request::Consumer(self)).unwrap()
     }
 }
 
