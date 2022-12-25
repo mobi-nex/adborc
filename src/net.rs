@@ -510,7 +510,7 @@ impl PortForwarder {
                     debug!("Sent stop signal to portforwarder");
                     // Portforwader checks for stop signal only when a new connection is received.
                     // Force a new connection to be established to stop the server.
-                    if TcpStream::connect(self.src_addr).await.is_err() {
+                    if TcpStream::connect(format!("127.0.0.1:{}", self.src_port)).await.is_err() {
                         warn!(
                             "Error establishing connection for stopping the Portforwader. Maybe the server is already stopped.");
                     };
