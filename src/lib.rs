@@ -65,7 +65,6 @@
 //!     net::TCPClient,
 //!     util::SysStateDefaultConfig
 //! };
-//! # use serde_json;
 //!
 //! // start the system in a separate thread.
 //! thread::spawn(|| SysState::start_system().unwrap());
